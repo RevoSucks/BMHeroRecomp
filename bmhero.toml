@@ -1,0 +1,20 @@
+# Config file for Bomberman Hero Recompilation
+
+[input]
+entrypoint = 0x80000400
+# Paths are relative to the location of this config file.
+rom_file_path = "bmhero.z64"
+bss_section_suffix = "_bss"
+symbols_file_path = "BMHeroSyms/dump.toml"
+output_func_path = "RecompiledFuncs"
+trace_mode = false
+
+[patches]
+stubs = []
+
+ignored = [
+    #"__osBlockSum",
+    "__osPfsReleasePages",
+    "__osPfsDeclearPage",
+    #"osPfsReFormat",
+]

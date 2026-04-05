@@ -1,0 +1,6 @@
+
+/*
+  In order for rml to parse the base style sheet and combine with this one, any style needs to at least be present.
+  If you add styles to this file later, you can clear the current contents of this file.
+*/
+.rml-needs-something-in-this-file {}
