@@ -20,3 +20,11 @@ ignored = [
     "__osPfsDeclearPage",
     #"osPfsReFormat",
 ]
+
+# When osAiGetLength returns a number that exceeds the target amount of samples per frame, the calculation (target samples per frame - osAiGetLength()) will result in a negative number.
+# When the clamping takes place to prevent a number of bytes that is too small, it doesn't take into account the negative number that resulted from the calculation.
+# Not doing this results in a negative number being given to osAiSetNextBuffer causing a massive memory leak and crash (because a signed negative number is being read as unsigned).
+[[patches.instruction]]
+func = "__amHandleFrameMsg"
+vram = 0x8000DB1C
+value = 0x0328082A # sltu       $at, $t9, $t0 -> slt        $at, $t9, $t0
