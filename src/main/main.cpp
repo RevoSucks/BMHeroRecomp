@@ -378,8 +378,7 @@ std::vector<recomp::GameEntry> supported_games = {
         .display_name = "Bomberman Hero",
         .game_id = u8"bmhero",
         .mod_game_id = "bmhero",
-        // Eep16k instead of Eep4k to have room for extra save file data.
-        .save_type = recomp::SaveType::Eep16k,
+        .save_type = recomp::SaveType::Eep4k,
         .thumbnail_bytes = std::span<const char>(icon_bytes),
         .is_enabled = false,
         //.decompression_routine = banjo::decompress_bk,

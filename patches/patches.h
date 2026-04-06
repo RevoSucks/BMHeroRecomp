@@ -34,6 +34,7 @@ void osWriteBackDCacheAll(void);
 #define osCreatePiManager osCreatePiManager_recomp
 #define osYieldThread osYieldThread_recomp
 #define osContInit osContInit_recomp
+#define osWritebackDCacheAll osWritebackDCacheAll_recomp
 
 #include "ultra64.h"
 #pragma GCC diagnostic push

@@ -33,6 +33,9 @@ RECOMP_PATCH void load_from_rom_to_addr(void* start, void* addr, s32 size) {
     osWritebackDCache(addr, size);
     osInvalICache(addr, size);
     osInvalDCache(addr, size);
+    osPiStartDma(&ioMesg, 0, 0, (u32)start, addr, size, &D_8004D728);
+    osRecvMesg(&D_8004D728, &dummy, 1);
+    /*
     start_loc = start;
     addr_loc = addr;
     size_loc = size;
@@ -51,6 +54,7 @@ RECOMP_PATCH void load_from_rom_to_addr(void* start, void* addr, s32 size) {
             addr_loc += size_amount;
         } while (size_loc != 0);
     }
+    */
     osInvalICache(addr, size);
     osInvalDCache(addr, size);
 
@@ -135,37 +139,235 @@ extern void thread1_idle(void *arg);
 
 extern void Parse_Args(void *);
 
-RECOMP_PATCH void main_game(void* arg) {
-    int i;
-    u8 padding[0x44];
-    u8* ptr;
+RECOMP_PATCH void guLookAtF(float mf[4][4], float xEye, float yEye, float zEye,
+	       float xAt,  float yAt,  float zAt,
+	       float xUp,  float yUp,  float zUp)
+{
+	float	len, xLook, yLook, zLook, xRight, yRight, zRight;
 
-    // clears code segment in RAM. Whats the need to do this, when a soft reset does this anyway?
-    /*
-    for (ptr = (u8*) game_VRAM; (u32) ptr < (u32) 0x80400000; ptr++) {
-        *ptr = 0;
-    }
-    if (D_8004A280.unk0 != 0) {
-        osTvType = 0;
-    }
-    */
-    osInitialize();
-    /*
-    for (ptr = (u8*) 0x80200000; (u32) ptr < (u32) 0x80225800; ptr++) {
-        *ptr = 0;
-    }
-    for (ptr = (u8*) 0x80225800; (u32) ptr < (u32) 0x8024B000; ptr++) {
-        *ptr = 0;
-    }
-    for (i = 0; i < 0x200U; i++) {
-        D_80050D38[i] = 0;
-        gIdleThreadStack[i] = 0;
-    }
-    */
+	guMtxIdentF(mf);
 
-    D_8016524C = 0;
+	xLook = xAt - xEye;
+	yLook = yAt - yEye;
+	zLook = zAt - zEye;
 
-    //Parse_Args(NULL);
-    osCreateThread(&gIdleThread, 1, &thread1_idle, arg, (u8*) &gIdleThreadStack + 0x1000, 10);
-    osStartThread(&gIdleThread);
+	/* Negate because positive Z is behind us: */
+
+	len = -1.0 / sqrtf (xLook*xLook + yLook*yLook + zLook*zLook);
+	xLook *= len;
+	yLook *= len;
+	zLook *= len;
+
+	/* Right = Up x Look */
+
+    recomp_printf("xUp 0x%08X\n", *(u32*)&xUp);
+    recomp_printf("yUp 0x%08X\n", *(u32*)&yUp);
+    recomp_printf("zUp 0x%08X\n", *(u32*)&zUp);
+
+    recomp_printf("xLook 0x%08X\n", *(u32*)&xLook);
+    recomp_printf("yLook 0x%08X\n", *(u32*)&yLook);
+    recomp_printf("zLook 0x%08X\n", *(u32*)&zLook);
+
+	xRight = yUp * zLook - zUp * yLook;
+	yRight = zUp * xLook - xUp * zLook;
+	zRight = xUp * yLook - yUp * xLook;
+
+    f32 check = xRight*xRight + yRight*yRight + zRight*zRight;
+    f32 check_sqrtf = sqrtf (xRight*xRight + yRight*yRight + zRight*zRight);
+
+    if (check_sqrtf == 0.0f) {
+        // uh oh
+        recomp_printf("NaN was calculated. Args that were passed in:\n");
+        recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X\n",
+        *(u32*)&xEye, *(u32*)&yEye, *(u32*)&zEye, *(u32*)&xAt, *(u32*)&yAt, *(u32*)&zAt, *(u32*)&xUp, *(u32*)&yUp, *(u32*)&zUp);
+    }
+
+	len = 1.0 / sqrtf (xRight*xRight + yRight*yRight + zRight*zRight);
+	xRight *= len;
+	yRight *= len;
+	zRight *= len;
+
+	/* Up = Look x Right */
+
+	xUp = yLook * zRight - zLook * yRight;
+	yUp = zLook * xRight - xLook * zRight;
+	zUp = xLook * yRight - yLook * xRight;
+	len = 1.0 / sqrtf (xUp*xUp + yUp*yUp + zUp*zUp);
+	xUp *= len;
+	yUp *= len;
+	zUp *= len;
+
+	mf[0][0] = xRight;
+	mf[1][0] = yRight;
+	mf[2][0] = zRight;
+	mf[3][0] = -(xEye * xRight + yEye * yRight + zEye * zRight);
+
+	mf[0][1] = xUp;
+	mf[1][1] = yUp;
+	mf[2][1] = zUp;
+	mf[3][1] = -(xEye * xUp + yEye * yUp + zEye * zUp);
+
+	mf[0][2] = xLook;
+	mf[1][2] = yLook;
+	mf[2][2] = zLook;
+	mf[3][2] = -(xEye * xLook + yEye * yLook + zEye * zLook);
+
+	mf[0][3] = 0;
+	mf[1][3] = 0;
+	mf[2][3] = 0;
+	mf[3][3] = 1;
+}
+
+RECOMP_PATCH void guLookAt (Mtx *m, float xEye, float yEye, float zEye,
+	       float xAt,  float yAt,  float zAt,
+	       float xUp,  float yUp,  float zUp)
+{
+	Matrix	mf;
+
+	guLookAtF(mf, xEye, yEye, zEye, xAt, yAt, zAt, xUp, yUp, zUp);
+
+	guMtxF2L(mf, m);
+}
+
+extern void func_8001D4D0(void);
+extern void func_8006D6F4(void);
+extern void func_80087C58(void);
+extern void func_8007E678(void);
+extern void func_8001C464(void);
+extern void func_8001C70C(void);
+extern void func_8001C96C(void);
+extern void func_8006E7CC(void);
+extern void func_80087D70(void);
+extern void func_8001C5B8(void);
+extern void func_8007F3F0(void);
+extern void func_800657E8(void);
+extern void func_800818CC(void);
+extern void func_80077528(void);
+extern void Cutscene_HandlePrintText(void);
+extern void func_80087C58(void);
+extern void func_80087D70(void);
+extern void func_80070B1C(void);
+extern void func_80071240(void);
+extern void func_8007070C(void);
+extern void func_8006F780(void);
+extern void func_80064120(void);
+extern void func_800FF7B4(void);
+
+extern void yield_self_1ms(void);
+
+RECOMP_PATCH void func_800821E0(void) {
+    u16 sp3E;
+    s32 temp_t8;
+    Gfx* sp34;
+    Gfx* sp30;
+
+    func_8001D4D0();
+    if (D_80177A20 < 2) {
+        if (D_8017792E == 0) {
+            Debug_SetBg(1, (s32) D_80177932, (s32) D_80177934, (s32) D_80177938);
+        } else {
+            Debug_SetBg(0, 0, 0, 0);
+            func_8006D6F4();
+        }
+    } else {
+        Debug_SetBg(1, 0, 0, 0);
+    }
+    guPerspective(D_8016E104->unk00, &sp3E, 50.0f, 1.3333334f, 100.0f, D_801779C8.raw, 1.0f);
+    sp34 = gMasterDisplayList++;
+    sp34->words.w0 = 0xBC00000E;
+    sp34->words.w1 = (u32) sp3E;
+
+    // if any of these will cause a NaN, just pass temporary values in.
+    if ( (gView.eye.x == 0.0f && gView.eye.y == 0.0f && gView.eye.z == 0.0f) ||
+         (gView.at.x  == 0.0f && gView.at.y  == 0.0f && gView.at.z  == 0.0f) ||
+         (gView.up.x  == 0.0f && gView.up.y  == 0.0f && gView.up.z  == 0.0f)) {
+            gView.at.x = 0.0f;
+            gView.at.y = 0.0f;
+            gView.at.z = 0.0f;
+            gView.eye.x = 0.0f;
+            gView.eye.y = 0.0f;
+            gView.eye.z = 1000.0f;
+            gView.rot.x = 0.0f;
+            gView.rot.y = 0.0f;
+            gView.rot.z = 0.0f;
+            gView.up.x = 0.0f;
+            gView.up.y = 1.0f;
+            gView.up.z = 0.0f;
+            gView.dist = 1000.0f;
+        }
+
+    guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
+             gView.up.x, gView.up.y, gView.up.z);
+    sp30 = gMasterDisplayList++;
+    sp30->words.w0 = 0x01030040;
+    sp30->words.w1 = (u32) D_8016E104;
+    D_8016E3A4 = 0;
+    if (D_80177A20 < 2) {
+        func_80087C58();
+        func_8007E678();
+        func_8001C464();
+        func_8001C70C();
+        func_8001C96C();
+        func_8006E7CC();
+        func_80087D70();
+        func_8001C5B8();
+        func_8007F3F0();
+        func_800657E8();
+        func_800818CC();
+        func_80077528();
+        Cutscene_HandlePrintText();
+    } else {
+        func_80087C58();
+        func_80087D70();
+    }
+    func_80070B1C();
+    func_80071240();
+    func_8007070C();
+    func_8006F780();
+    func_80064120();
+    func_800FF7B4();
+    if (gDebugShowTimerBar != 0) {
+        Debug_DrawProfiler(0x2E, 0xD0);
+    }
+}
+
+extern s32 D_80165254;
+extern Gfx *gMasterDisplayList;
+extern void func_8005F0F4(void);
+extern void Create_GfxTask(void);
+extern void func_8001D3CC(void);
+
+RECOMP_PATCH void func_8001D9E4(void* arg0) {
+    func_8005F0F4();
+    D_8016E10C = arg0;
+    D_8016E104 = &D_8016E10C->unk68;
+    gMasterDisplayList = &D_8016E10C->unk68.gfxWork;
+
+    gEXEnable(gMasterDisplayList++);
+    gEXSetRefreshRate(gMasterDisplayList, 60);
+
+    gSPSegment(gMasterDisplayList++, 0x00, 0x00000000);
+    gSPSegment(gMasterDisplayList++, 0x01, osVirtualToPhysical(gFileArray[0].ptr));
+    gSPDisplayList(gMasterDisplayList++, D_1000C68);
+
+    if (D_80165254 == 1) {
+        gSPDisplayList(gMasterDisplayList++, D_1000B78);
+    }
+
+    gSPDisplayList(gMasterDisplayList++, D_1000C50);
+    if (D_80165254 == 0) {
+        if ((D_8016E0A8 != 0) && (gDebugRoutine1 != NULL)) {
+            gDebugRoutine1();
+        }
+    } else if (D_80165254 == 2) {
+        D_80165254 = 0;
+    } else {
+        D_80165254++;
+    }
+    func_8001D3CC();
+    gDPFullSync(gMasterDisplayList++);
+    gSPEndDisplayList(gMasterDisplayList++);
+
+    osWritebackDCacheAll();
+    Create_GfxTask();
 }
