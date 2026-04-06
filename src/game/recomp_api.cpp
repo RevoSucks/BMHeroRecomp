@@ -223,6 +223,22 @@ constexpr uint32_t k1_to_phys(uint32_t addr) {
     return addr & 0x1FFFFFFF;
 }
 
+extern "C" void osPfsIsPlug_recomp(uint8_t * rdram, recomp_context* ctx) {
+    // TODO
+}
+
+extern "C" void __f_to_ull_recomp(uint8_t * rdram, recomp_context* ctx) {
+    // TODO
+}
+
+extern "C" void __osPfsSelectBank_recomp(uint8_t * rdram, recomp_context* ctx) {
+    // TODO
+}
+
+extern "C" void __osContRamRead_recomp(uint8_t * rdram, recomp_context* ctx) {
+    // TODO
+}
+
 extern "C" void osPiReadIo_recomp(RDRAM_ARG recomp_context * ctx) {
     uint32_t devAddr = recomp::rom_base | ctx->r4;
     gpr dramAddr = ctx->r5;

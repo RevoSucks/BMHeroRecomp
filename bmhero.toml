@@ -10,7 +10,9 @@ output_func_path = "RecompiledFuncs"
 trace_mode = false
 
 [patches]
-stubs = []
+stubs = [
+    #"__osSiDeviceBusy",
+]
 
 ignored = [
     #"__osBlockSum",
