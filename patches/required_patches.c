@@ -56,6 +56,7 @@ RECOMP_PATCH void load_from_rom_to_addr(void* start, void* addr, s32 size) {
 
     // detect overlays and map them.
     switch((u32)start) {
+        case 0x04DFF0: recomp_load_overlays((u32)start, addr, size); break; // main area
         case 0x128D20: recomp_load_overlays((u32)start, addr, size); break; // code_extra_0
         case 0x134440: recomp_load_overlays((u32)start, addr, size); break; // code_extra_1
         case 0x138360: recomp_load_overlays((u32)start, addr, size); break; // code_extra_2
@@ -126,120 +127,45 @@ RECOMP_PATCH void load_from_rom_to_addr(void* start, void* addr, s32 size) {
     }
 }
 
-extern u8 gControllerBits;
-extern u16 gContPlugged[4];
-extern u16 gContCurrButton[4];
-extern u16 gContLastButton[4];
-extern u16 gContButtonPressed[4];
-extern s8 gContStickX[4];
-extern s8 gContStickY[4];
-extern u16 gContCurrDir[4];
-extern u16 gContLastDir[4];
-extern u16 gContDirPressed[4];
-extern u16 gContRawPlugged[4];
-extern u16 gContRawCurrButton[4];
-extern u16 gContRawLastButton[4];
-extern u16 gContRawButtonPressed[4];
-extern s8 gContRawStickX[4];
-extern s8 gContRawStickY[4];
-extern u16 gContRawCurrDir[4];
-extern u16 gContRawLastDir[4];
-extern u16 gContRawDirPressed[4];
+extern u64 D_80050D38[];
+extern OSThread gIdleThread;
+extern u64 gIdleThreadStack[];
 
-extern void func_8001DC78(void);
-/**
- * Setup the mesg queue for the controllers and init them.
- */
-RECOMP_PATCH void InitControllers(void) {
-    s32 status;
-    u16 i;
+extern void thread1_idle(void *arg);
 
-    gControllerBits = 0;
-    osCreateMesgQueue(&gContMesgQueue, &D_801776CC, 1);
-    osSetEventMesg(5U, &gContMesgQueue, (void*) 1);
-    status = osContInit(&gContMesgQueue, &gControllerBits, &sContStatus);
-    recomp_printf("[InitControllers] bits is 0x%02X\n", gControllerBits);
-    if (status != 0) {
-        // presumedly for handling if the controller had an error, but there's nothing here.
-        // missing assert?
-    }
-    for (i = 0; i < MAXCONTROLLERS; i++) {
-        gContRawPlugged[i] = 0;
-        gContRawLastButton[i] = 0;
-        gContRawCurrButton[i] = 0;
-        gContRawButtonPressed[i] = 0;
-        gContRawStickX[i] = 0;
-        gContRawStickY[i] = 0;
-        gContRawCurrDir[i] = 0;
-        gContRawLastDir[i] = 0;
-        gContRawDirPressed[i] = 0;
-        gContLastButton[i] = 0;
-        gContCurrButton[i] = 0;
-        gContButtonPressed[i] = 0;
-        gContStickX[i] = 0;
-        gContStickY[i] = 0;
-        gContCurrDir[i] = 0;
-        gContLastDir[i] = 0;
-        gContDirPressed[i] = 0;
-    }
-    UpdateActiveController(0);
-    func_8001DC78();
-}
+extern void Parse_Args(void *);
 
-/**
- * Perform the reading of the raw arrays front the OSContPad data itself. This will be later read
- * into the buffers to be used during gameplay.
- */
-RECOMP_PATCH void UpdateRawControllers(void) {
-    OSContPad* pad;
-    u16 dir;
-    u16 i;
-    s32 status;
+RECOMP_PATCH void main_game(void* arg) {
+    int i;
+    u8 padding[0x44];
+    u8* ptr;
 
-    status = 1;
-    if (gControllerBits & 1) {
-        status = osContStartReadData(&gContMesgQueue);
-        if (status == 0) {
-            osRecvMesg(&gContMesgQueue, NULL, 1);
-            osContGetReadData(gContPads);
-        }
+    // clears code segment in RAM. Whats the need to do this, when a soft reset does this anyway?
+    /*
+    for (ptr = (u8*) game_VRAM; (u32) ptr < (u32) 0x80400000; ptr++) {
+        *ptr = 0;
     }
-    for (i = 0; i < MAXCONTROLLERS; i++) {
-        if ((gControllerBits >> i) & 1) {
-            pad = &gContPads[i];
-            // if any errors occurred or if no controllers are plugged in, treat the controller as if its not
-            // plugged in.
-            if ((pad->errno != 0) || (status != 0)) {
-                gContRawPlugged[i] = 0;
-                ;
-            } else {
-                gContRawPlugged[i] = 1;
-                dir = 0;
-                gContRawStickX[i] = pad->stick_x;
-                gContRawStickY[i] = pad->stick_y;
-                if (gContRawStickX[i] >= 0x32) {
-                    dir |= CONT_RIGHT;
-                } else if (gContRawStickX[i] < -0x31) {
-                    dir |= CONT_LEFT;
-                }
-                if (gContRawStickY[i] >= 0x32) {
-                    dir |= CONT_UP;
-                } else if (gContRawStickY[i] < -0x31) {
-                    dir |= CONT_DOWN;
-                }
-                if (D_8016525C != 0) {
-                    gContRawCurrButton[i] = 0;
-                    gContRawCurrDir[i] = 0;
-                } else if (D_80165284 == 1) {
-                    gContRawLastButton[i] = gContRawCurrButton[i];
-                    gContRawCurrButton[i] = pad->button;
-                    gContRawLastDir[i] = gContRawCurrDir[i];
-                    gContRawCurrDir[i] = dir;
-                } else {
-                    gContRawCurrButton[i] |= pad->button;
-                    gContRawCurrDir[i] |= dir;
-                }
-            }
-        }
+    if (D_8004A280.unk0 != 0) {
+        osTvType = 0;
     }
+    */
+    osInitialize();
+    /*
+    for (ptr = (u8*) 0x80200000; (u32) ptr < (u32) 0x80225800; ptr++) {
+        *ptr = 0;
+    }
+    for (ptr = (u8*) 0x80225800; (u32) ptr < (u32) 0x8024B000; ptr++) {
+        *ptr = 0;
+    }
+    for (i = 0; i < 0x200U; i++) {
+        D_80050D38[i] = 0;
+        gIdleThreadStack[i] = 0;
+    }
+    */
+
+    D_8016524C = 0;
+
+    //Parse_Args(NULL);
+    osCreateThread(&gIdleThread, 1, &thread1_idle, arg, (u8*) &gIdleThreadStack + 0x1000, 10);
+    osStartThread(&gIdleThread);
 }
