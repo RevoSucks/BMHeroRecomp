@@ -1,8 +1,12 @@
 #include "patches.h"
+
+#include <ultra64.h>
+
 #include "misc_funcs.h"
 #include "PR/os_pi.h"
 #include "PR/os_message.h"
 #include "PR/os_cont.h"
+#include "ultramodern/extensions.h"
 
 unsigned long long dummy = 0x0123456789ABCDEFULL;
 
@@ -139,96 +143,6 @@ extern void thread1_idle(void *arg);
 
 extern void Parse_Args(void *);
 
-RECOMP_PATCH void guLookAtF(float mf[4][4], float xEye, float yEye, float zEye,
-	       float xAt,  float yAt,  float zAt,
-	       float xUp,  float yUp,  float zUp)
-{
-	float	len, xLook, yLook, zLook, xRight, yRight, zRight;
-
-	guMtxIdentF(mf);
-
-	xLook = xAt - xEye;
-	yLook = yAt - yEye;
-	zLook = zAt - zEye;
-
-	/* Negate because positive Z is behind us: */
-
-	len = -1.0 / sqrtf (xLook*xLook + yLook*yLook + zLook*zLook);
-	xLook *= len;
-	yLook *= len;
-	zLook *= len;
-
-	/* Right = Up x Look */
-
-    recomp_printf("xUp 0x%08X\n", *(u32*)&xUp);
-    recomp_printf("yUp 0x%08X\n", *(u32*)&yUp);
-    recomp_printf("zUp 0x%08X\n", *(u32*)&zUp);
-
-    recomp_printf("xLook 0x%08X\n", *(u32*)&xLook);
-    recomp_printf("yLook 0x%08X\n", *(u32*)&yLook);
-    recomp_printf("zLook 0x%08X\n", *(u32*)&zLook);
-
-	xRight = yUp * zLook - zUp * yLook;
-	yRight = zUp * xLook - xUp * zLook;
-	zRight = xUp * yLook - yUp * xLook;
-
-    f32 check = xRight*xRight + yRight*yRight + zRight*zRight;
-    f32 check_sqrtf = sqrtf (xRight*xRight + yRight*yRight + zRight*zRight);
-
-    if (check_sqrtf == 0.0f) {
-        // uh oh
-        recomp_printf("NaN was calculated. Args that were passed in:\n");
-        recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X\n",
-        *(u32*)&xEye, *(u32*)&yEye, *(u32*)&zEye, *(u32*)&xAt, *(u32*)&yAt, *(u32*)&zAt, *(u32*)&xUp, *(u32*)&yUp, *(u32*)&zUp);
-    }
-
-	len = 1.0 / sqrtf (xRight*xRight + yRight*yRight + zRight*zRight);
-	xRight *= len;
-	yRight *= len;
-	zRight *= len;
-
-	/* Up = Look x Right */
-
-	xUp = yLook * zRight - zLook * yRight;
-	yUp = zLook * xRight - xLook * zRight;
-	zUp = xLook * yRight - yLook * xRight;
-	len = 1.0 / sqrtf (xUp*xUp + yUp*yUp + zUp*zUp);
-	xUp *= len;
-	yUp *= len;
-	zUp *= len;
-
-	mf[0][0] = xRight;
-	mf[1][0] = yRight;
-	mf[2][0] = zRight;
-	mf[3][0] = -(xEye * xRight + yEye * yRight + zEye * zRight);
-
-	mf[0][1] = xUp;
-	mf[1][1] = yUp;
-	mf[2][1] = zUp;
-	mf[3][1] = -(xEye * xUp + yEye * yUp + zEye * zUp);
-
-	mf[0][2] = xLook;
-	mf[1][2] = yLook;
-	mf[2][2] = zLook;
-	mf[3][2] = -(xEye * xLook + yEye * yLook + zEye * zLook);
-
-	mf[0][3] = 0;
-	mf[1][3] = 0;
-	mf[2][3] = 0;
-	mf[3][3] = 1;
-}
-
-RECOMP_PATCH void guLookAt (Mtx *m, float xEye, float yEye, float zEye,
-	       float xAt,  float yAt,  float zAt,
-	       float xUp,  float yUp,  float zUp)
-{
-	Matrix	mf;
-
-	guLookAtF(mf, xEye, yEye, zEye, xAt, yAt, zAt, xUp, yUp, zUp);
-
-	guMtxF2L(mf, m);
-}
-
 extern void func_8001D4D0(void);
 extern void func_8006D6F4(void);
 extern void func_80087C58(void);
@@ -254,6 +168,9 @@ extern void func_80064120(void);
 extern void func_800FF7B4(void);
 
 extern void yield_self_1ms(void);
+extern void func_8008B030(void);
+
+static int prevent = 0;
 
 RECOMP_PATCH void func_800821E0(void) {
     u16 sp3E;
@@ -276,25 +193,6 @@ RECOMP_PATCH void func_800821E0(void) {
     sp34 = gMasterDisplayList++;
     sp34->words.w0 = 0xBC00000E;
     sp34->words.w1 = (u32) sp3E;
-
-    // if any of these will cause a NaN, just pass temporary values in.
-    if ( (gView.eye.x == 0.0f && gView.eye.y == 0.0f && gView.eye.z == 0.0f) ||
-         (gView.at.x  == 0.0f && gView.at.y  == 0.0f && gView.at.z  == 0.0f) ||
-         (gView.up.x  == 0.0f && gView.up.y  == 0.0f && gView.up.z  == 0.0f)) {
-            gView.at.x = 0.0f;
-            gView.at.y = 0.0f;
-            gView.at.z = 0.0f;
-            gView.eye.x = 0.0f;
-            gView.eye.y = 0.0f;
-            gView.eye.z = 1000.0f;
-            gView.rot.x = 0.0f;
-            gView.rot.y = 0.0f;
-            gView.rot.z = 0.0f;
-            gView.up.x = 0.0f;
-            gView.up.y = 1.0f;
-            gView.up.z = 0.0f;
-            gView.dist = 1000.0f;
-        }
 
     guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
              gView.up.x, gView.up.y, gView.up.z);
@@ -337,6 +235,8 @@ extern void func_8005F0F4(void);
 extern void Create_GfxTask(void);
 extern void func_8001D3CC(void);
 
+static int frameCount = 0;
+
 RECOMP_PATCH void func_8001D9E4(void* arg0) {
     func_8005F0F4();
     D_8016E10C = arg0;
@@ -348,6 +248,7 @@ RECOMP_PATCH void func_8001D9E4(void* arg0) {
 
     gSPSegment(gMasterDisplayList++, 0x00, 0x00000000);
     gSPSegment(gMasterDisplayList++, 0x01, osVirtualToPhysical(gFileArray[0].ptr));
+    
     gSPDisplayList(gMasterDisplayList++, D_1000C68);
 
     if (D_80165254 == 1) {
@@ -368,6 +269,648 @@ RECOMP_PATCH void func_8001D9E4(void* arg0) {
     gDPFullSync(gMasterDisplayList++);
     gSPEndDisplayList(gMasterDisplayList++);
 
+    //recomp_printf("Test word: 0x%08X 0x%08X\n", ((u32*)D_8016E10C->unk68.gfxWork)[4], ((u32*)D_8016E10C->unk68.gfxWork)[5]);
+
+    frameCount++;
+
     osWritebackDCacheAll();
     Create_GfxTask();
+    
+}
+
+RECOMP_PATCH void func_8001D000(s32 red, s32 green, s32 blue, s32 alpha) {
+    gDPPipeSync(gMasterDisplayList++);
+    gDPSetCycleType(gMasterDisplayList++, G_CYC_1CYCLE);
+    gSPClearGeometryMode(gMasterDisplayList++, G_SHADE | G_CULL_BOTH | G_FOG | G_LIGHTING | G_TEXTURE_GEN |
+                                                   G_TEXTURE_GEN_LINEAR | G_LOD | G_SHADING_SMOOTH);
+    gSPSetGeometryMode(gMasterDisplayList++, G_SHADE | G_CULL_BACK | G_SHADING_SMOOTH);
+    gDPSetCombineMode(gMasterDisplayList++, G_CC_PRIMITIVE, G_CC_PRIMITIVE);
+    gDPSetRenderMode(gMasterDisplayList++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
+    gDPSetPrimColor(gMasterDisplayList++, 0, 0, red, green, blue, alpha);
+    gDPFillRectangle(gMasterDisplayList++, 0, 0, 320, 240); // patch the rect coords
+}
+
+extern UNK_TYPE D_801DA800;
+
+RECOMP_PATCH void func_8001D4D0(void) {
+    gDPPipeSync(gMasterDisplayList++);
+    gDPSetDepthImage(gMasterDisplayList++, osVirtualToPhysical(&D_801DA800));
+    gDPSetCycleType(gMasterDisplayList++, G_CYC_FILL);
+    gDPSetColorImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 320, osVirtualToPhysical(&D_801DA800));
+    gDPSetFillColor(gMasterDisplayList++, 0xFFFCFFFC);
+    gDPFillRectangle(gMasterDisplayList++, 0, 0, 320, 240);
+}
+
+// Debug_SetBackgroundColor
+RECOMP_PATCH void Debug_SetBg(s32 setColor, char red, char green, char blue) {
+
+    gDPPipeSync(gMasterDisplayList++);
+    gDPSetColorImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 320, osVirtualToPhysical((void*)D_8016E10C->unk18168));
+
+    if (setColor) {
+        gDPSetFillColor(gMasterDisplayList++,
+                        (GPACK_RGBA5551(0, 0, 0, 1) << 16) | GPACK_RGBA5551(0, 0, 0, 1));
+
+        gDPFillRectangle(gMasterDisplayList++, 0, 0, 320, 240);
+    }
+    gDPPipeSync(gMasterDisplayList++);
+    gDPSetCycleType(gMasterDisplayList++, G_CYC_1CYCLE);
+}
+
+// Patch the GFX tiler function
+
+extern Gfx* gMasterDisplayList;
+
+// draw a tiled graphic?
+RECOMP_PATCH void func_80060F00(f32 x, f32 y, s32 width, s32 height, f32 scale_x, f32 scale_y, Gfx *arg6, Gfx *arg7, s16 arg8) {
+    s32 spFC;
+    s32 spF8;
+    s32 spF4;
+    s32 spF0;
+    s32 size;
+    s32 spE8;
+    s16 count;
+    s16 i;
+    s32 ulx;
+    s32 uly;
+    s32 lrx;
+    s32 lry;
+    s32 spD0;
+    s32 spCC;
+    s32 spC8;
+    f32 spC4;
+
+    gDPPipeSync(gMasterDisplayList++);
+    gDPSetCycleType(gMasterDisplayList++, G_CYC_1CYCLE);
+    gSPClearGeometryMode(gMasterDisplayList++, G_SHADE | G_CULL_BOTH | G_FOG | G_LIGHTING | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_LOD | G_SHADING_SMOOTH);
+    gSPSetGeometryMode(gMasterDisplayList++, G_ZBUFFER | G_SHADE | G_CULL_BACK | G_LIGHTING | G_SHADING_SMOOTH);
+    gDPSetTexturePersp(gMasterDisplayList++, G_TP_NONE);
+    gDPSetRenderMode(gMasterDisplayList++, G_RM_AA_TEX_EDGE, G_RM_AA_TEX_EDGE2);
+    gDPSetCombineMode(gMasterDisplayList++, G_CC_DECALRGBA, G_CC_DECALRGBA);
+    gDPSetColorDither(gMasterDisplayList++, G_CD_BAYER);
+    gDPSetTextureFilter(gMasterDisplayList++, G_TF_BILERP);
+
+    if (arg8 == 0) {
+        gDPSetTextureLUT(gMasterDisplayList++, G_TT_RGBA16);
+        gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, arg7);
+        gDPTileSync(gMasterDisplayList++);
+        gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_4b, 0, 0x0100, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+        gDPLoadSync(gMasterDisplayList++);
+        gDPLoadTLUTCmd(gMasterDisplayList++, G_TX_LOADTILE, 15);
+        gDPPipeSync(gMasterDisplayList++);
+    } else if (arg8 == 1) {
+        gDPSetTextureLUT(gMasterDisplayList++, G_TT_RGBA16);
+        gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, arg7);
+        gDPTileSync(gMasterDisplayList++);
+        gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_4b, 0, 0x0100, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+        gDPLoadSync(gMasterDisplayList++);
+        gDPLoadTLUTCmd(gMasterDisplayList++, G_TX_LOADTILE, 255);
+        gDPPipeSync(gMasterDisplayList++);
+    } else {
+        gDPSetTextureLUT(gMasterDisplayList++, G_TT_NONE);
+    }
+
+    spD0 = (s32)(1024.0f / scale_x + 0.5f);
+    spCC = (s32)(1024.0f / scale_y + 0.5f);
+    spE8 = 0;
+    spF0 = 0;
+    spF4 = 0;
+    spFC = width;
+    spF8 = height;
+
+    if (x < (2.0f * scale_x)) {
+        spC4 = -(x - (2.0f * scale_x));
+        spF4 = (spF4 + (s32)(spC4 / scale_x));
+        width -= spF4;
+        spC8 = (s32)(spC4 / (2.0f * scale_x));
+        spC8 = (s32)(spC4 - (2.0f * scale_x * spC8));
+        x = ((scale_x * 2.0f) - spC8);
+    }
+    if (y < scale_y) {
+        spC4 = -(y - scale_y);
+        spF0 = (spF0 + (s32)(spC4 / scale_y));
+        height -= spF0;
+        spC8 = (s32)(spC4 / scale_y);
+        spC8 = (s32)(spC4 - (spC8 * scale_y));
+        y = scale_y - spC8;
+    }
+    if (((width * scale_x) + x) > 328.0f) {
+        width = (s32)(width - (((x + (width * scale_x)) - 328.0f) / scale_x));
+    }
+    if (((height * scale_y) + y) > 244.0f) {
+        height = (s32)(height - (((y + (height * scale_y)) - 244.0f) / scale_y));
+    }
+    if (width < 0) {
+        width = 0;
+    }
+    if (spF4 > spFC) {
+        spF4 = spFC;
+    }
+    if (height < 0) {
+        height = 0;
+    }
+    if (spF0 > spF8) {
+        spF0 = spF8;
+    }
+
+    if ((width * height) >= 0x5DD) {
+        size = 0x5DC / width;
+        count = (height / size);
+        if ((height % size) != 0) {
+            count += 1;
+        }
+    } else {
+        count = 1;
+        size = height;
+    }
+
+    ulx = (s32)(x * 4.0f + 0.5f);
+    lrx = (s32)(x * 4.0f + (width * scale_x) * 4.0f + 0.5f);
+	
+	s32 current_uly = (s32)(y * 4.0f + 0.5f);
+
+    for (i = 0; i < count; i++) {
+
+        if ((i + 1) == count) {
+            size = height - (i * size);
+        }
+
+        if (arg8 == 0) {
+            gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_8b, spFC >> 1, arg6);
+            gDPSetTile(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_8b, ((((((spF4 + width) - spF4) + 1) >> 1) + 7) >> 3), 0, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+            gDPLoadSync(gMasterDisplayList++);
+            gDPLoadTile(gMasterDisplayList++, G_TX_LOADTILE, spF4 * 2, spF0 * 4, ((spF4 + width) * 2) - 1, ((spF0 + size) * 4) - 4);
+            gDPPipeSync(gMasterDisplayList++);
+            gDPSetTile(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_4b, ((((((spF4 + width) - spF4) + 1) >> 1) + 7) >> 3), 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+        } else if (arg8 == 1) {
+            gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_8b, spFC, arg6);
+            gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_8b, ((((spF4 + width) - spF4) + 8) >> 3), 0, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+            gDPLoadSync(gMasterDisplayList++);
+            gDPLoadTile(gMasterDisplayList++, G_TX_LOADTILE, (spF4 * 4), (spF0 * 4), ((spF4 + width) * 4) - 4, ((spF0 + size) * 4) - 4);
+            gDPPipeSync(gMasterDisplayList++);
+            gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_8b, ((((spF4 + width) - spF4) + 8) >> 3), 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+        } else {
+            gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_32b, spFC, arg6);
+            gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_32b, (((((spF4 + width) - spF4) * 2) + 9) >> 3), 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+            gDPLoadSync(gMasterDisplayList++);
+            gDPLoadTile(gMasterDisplayList++, G_TX_LOADTILE, (spF4 * 4), (spF0 * 4), ((spF4 + width) * 4) - 4, ((spF0 + size) * 4) - 4);
+            gDPPipeSync(gMasterDisplayList++);
+            gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_32b, (((((spF4 + width) - spF4) * 2) + 9) >> 3), 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+        }
+
+        gDPSetTileSize(gMasterDisplayList++, G_TX_RENDERTILE, 0, 0, (width * 4) - 4, (size * 4) - 4);
+
+        uly = current_uly;
+        lry = (s32)(uly + (size * scale_y) * 4.0f + 0.5f);
+        current_uly = lry;
+
+        gSPTextureRectangle(gMasterDisplayList++, ulx, uly, lrx, lry, G_TX_RENDERTILE, 0, 0, spD0, spCC);
+        spF0 += size;
+        spE8 += size;
+    }
+}
+
+typedef struct UnkStruct_F280_s {
+    UNK_TYPE unk0;
+    Vec3f unk4;
+    Vec3f unk10;
+    Vec3f unk1C;
+    struct UnkStruct_F280_s* unk28;
+    s32 unk2C;
+}UnkStruct_F280;
+
+typedef struct  {
+    s32 pad[2];
+    struct UnkInputStruct8000EEE8_SPE4 unk8;
+    struct UnkInputStruct8000EEE8_SPEC unkC;
+}UnkStruct_F280_1;
+
+typedef struct {
+    Vec3f unk0;
+    Vec3f unkC;
+    Vec3f unk18;
+} UnkStruct_8000F888;
+
+extern Matrix D_800557E0;
+extern s32 D_80055820;
+extern Matrix D_80055828[20];
+extern s32 BssPad_80055d28;
+extern u32 D_80055D30[3];
+extern u32 D_80055D40[3];
+extern s32 D_80055D4C;
+
+s32 tagged = 0;
+
+s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6);
+s32 func_8000FC08(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6);
+
+#define gEXMatrixGroupDecomposeInterpolate(cmd, push, proj, edit) \
+    gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_DECOMPOSE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP)
+
+s32 func_8000F888(UnkStruct_8000F888* arg0, Gfx** arg1, s32 arg2, UNUSED s32 arg3, UNUSED s32* unused, s32* arg5);
+
+int bufferID = 0;
+
+RECOMP_PATCH s32 func_8000FD9C(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, UnkStruct_F280_1* arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6) {
+    D_80055820 = 0;
+    guMtxL2F(D_80055828[D_80055820], (Mtx*) &D_8016E104->unk00[1]);
+
+    //recomp_printf("[func_8000FD9C] arg0 (0x%08X) arg1 (0x%08X) arg2 (0x%08X) arg3 (0x%08X)\narg4 (0x%08X) arg5 (0x%08X) arg6 (0x%08X)\n", arg0, arg1, arg2, arg3, arg4, arg5, arg6);
+
+    if (arg0->unk0 == 0) {
+        //gEXMatrixGroupDecomposeInterpolate((*arg1)++, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
+
+        if (bufferID == 0) {
+            tagged = 1;
+        }
+        // world geometry
+        arg6 = func_8000EEE8(arg1, arg2, arg3, arg4, arg5, arg0->unk28, arg6);
+        
+        // @recomp Clear the matrix group.
+        //gEXPopMatrixGroup((*arg1)++, G_MTX_MODELVIEW);
+    } else if (arg0->unk0 == 1) {
+        // objects (bomberman, platform, doors, etc)
+        arg6 = func_8000FC08((void*)arg0->unk28, arg1, (s32)arg2, arg3, arg4, arg5, arg6);
+    }
+
+    return arg6;
+}
+
+extern void Math_Mat3f_Inverse(Matrix mf, Matrix mf1);
+s32 func_8000E944(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, Gfx* arg5, s32 arg6, s32 arg7);
+
+RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6) {
+    struct UnkInputStruct8000EEE8_SPEC* spEC;
+    Gfx* dlist;
+    struct UnkInputStruct8000EEE8_SPE4* spE4;
+    Matrix spA4;
+    s32 spA0;
+
+    spA0 = 0;
+    spE4 = &arg1->unk8;
+    spEC = &arg1->unkC;
+    dlist = *gfx;
+    guMtxIdentF(spA4);
+
+    gSPSegment(dlist++, spE4->unk0, OS_PHYSICAL_TO_K0(arg1));
+    gSPSegment(dlist++, spE4->unk1, OS_PHYSICAL_TO_K0(arg2));
+    gSPSegment(dlist++, spE4->unk2, OS_PHYSICAL_TO_K0(arg3));
+    gSPSegment(dlist++, spE4->unk3, OS_PHYSICAL_TO_K0(arg4));
+    gDPPipelineMode(dlist++, G_PM_1PRIMITIVE);
+
+    if ((spEC[arg5].unk0 == 0) || (spEC[arg5].unk0 == 5) || (spEC[arg5].unk0 == 6) || (spEC[arg5].unk0 == 8)) {
+        switch (spEC[arg5].unk0) { /* irregular */
+            case 5:
+                //recomp_printf("case 5\n");
+                guMtxIdentF(D_800557E0);
+                Math_Mat3f_Inverse(D_800557E0, D_80055828[D_80055820]);
+                Math_Mat3f_Scale((float*)D_800557E0, D_8016E3B4, D_8016E3BC, D_8016E3C4);
+                D_80055820 += 1;
+                guMtxCatF(D_800557E0, D_80055828[D_80055820 - 1], D_80055828[D_80055820]);
+                spA0 += 1;
+                break;
+            case 6:
+                //recomp_printf("case 6\n");
+                D_8004A390 = TRUE;
+                gDPSetTextureLUT(dlist++, G_TT_NONE);
+                gSPSetGeometryMode(dlist++, G_TEXTURE_GEN);
+                gSPTexture(dlist++, 0x07C0, 0x07C0, 0, G_TX_RENDERTILE, G_ON);
+                gDPSetTexturePersp(dlist++, G_TP_PERSP);
+                gDPSetPrimColor(dlist++, 0, 0, 255, 255, 255, 255);
+                gDPSetEnvColor(dlist++, 64, 64, 64, 255);
+                gDPSetCombineMode(dlist++, G_CC_HILITERGBA, G_CC_HILITERGBA);
+                gDPLoadTextureBlock(dlist++, D_1000768, G_IM_FMT_IA, G_IM_SIZ_8b, 32, 32, 0, G_TX_NOMIRROR | G_TX_WRAP,
+                                    G_TX_NOMIRROR | G_TX_WRAP, 5, 5, G_TX_NOLOD, G_TX_NOLOD);
+                gDPSetHilite1Tile(dlist++, G_TX_RENDERTILE, &D_8016E104->hilites[0], 32, 32);
+                break;
+            case 8:
+                //recomp_printf("case 6\n");
+                D_8004A394 = TRUE;
+                gSPSetGeometryMode(dlist++, G_TEXTURE_GEN);
+                break;
+            default:
+                //recomp_printf("case default\n");
+                if (D_8004A390) {
+                    gSPClearGeometryMode(dlist++, G_TEXTURE_GEN);
+                    gSPTexture(dlist++, 0, 0, 0, G_TX_RENDERTILE, G_OFF);
+                    D_8004A390 = FALSE;
+                } else if (D_8004A394) {
+                    gSPClearGeometryMode(dlist++, G_TEXTURE_GEN);
+                    D_8004A394 = FALSE;
+                }
+                break;
+        }
+        if (spEC[arg5].u.unk4_as_f != 1.0f) {
+            //recomp_printf("scale\n");
+            Math_Mat3f_Scale((float*)spA4, spEC[arg5].u.unk4_as_f, spEC[arg5].u.unk4_as_f, spEC[arg5].u.unk4_as_f);
+            D_80055820 += 1;
+            guMtxCatF(spA4, D_80055828[D_80055820 - 1], D_80055828[D_80055820]);
+            spA0 += 1;
+        }
+        guMtxF2L(D_80055828[D_80055820], &D_8016E104->unkE0[arg6]);
+
+        if (tagged) {
+            Mtx *m = &D_8016E104->unkE0[arg6];
+            //recomp_printf("matrix that was tagged:\n\n");
+            //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[0][0], m->m[0][1], m->m[0][2], m->m[0][3]);
+            //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[1][0], m->m[1][1], m->m[1][2], m->m[1][3]);
+            //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[2][0], m->m[2][1], m->m[2][2], m->m[2][3]);
+            //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[3][0], m->m[3][1], m->m[3][2], m->m[3][3]);
+#define GROUP_TAG_GEOMETRY 0
+            gEXMatrixGroupSimple(dlist++, GROUP_TAG_GEOMETRY, G_EX_PUSH, G_MTX_MODELVIEW, 0, -80, 0, 0, 0, 0, 0, 0, 0);
+            //gEXMatrixGroupDecomposeInterpolate(dlist++, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
+        }
+        gSPMatrix(dlist++, osVirtualToPhysical(&D_8016E104->unkE0[arg6++]),
+                  G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gSPDisplayList(dlist++, (s32) (spEC[arg5].dlist) + (u8*)arg1);
+        if (tagged) {
+            gEXPopMatrixGroup(dlist++, G_MTX_MODELVIEW);
+            tagged = 0;
+        }
+        D_80055820 -= spA0;
+    } else if (spEC[arg5].unk0 == 1) {
+        arg6 = func_8000E944(&dlist, arg1, arg2, arg3, arg4, spEC[arg5].dlist, spEC[arg5].u.unk4_as_s, arg6);
+    }
+    *gfx = dlist;
+    return arg6;
+}
+
+RECOMP_PATCH s32 func_8000FC08(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6) {
+    s32 sp34;
+    Gfx* sp30;
+    s32 sp2C;
+
+    sp30 = *arg1;
+    arg6 = func_8000F888((void*) ((u32) arg0 + 0x14), &sp30, arg6, arg2, (void*)arg0->unk0, &sp2C);
+    if (arg0->unk0 >= 0) {
+        arg6 = func_8000EEE8((Gfx**) &sp30, (void*)arg2, arg3, arg4, arg5, (s32) arg0->unk0, arg6);
+    }
+    if (arg0->unk10 != 0) {
+        for (sp34 = 0; sp34 < arg0->unk10; sp34++) {
+            arg6 = func_8000FC08((void*)arg0->unkC[sp34], &sp30, arg2, arg3, arg4, arg5, arg6);
+        }
+    }
+    if (sp2C != 0) {
+        D_80055820 -= 1;
+    }
+    *arg1 = sp30;
+    return arg6;
+}
+
+// .bss
+extern f32 D_80177680;
+extern f32 D_801776A8;
+extern f32 D_801776C8;
+extern f32 D_801776D0;
+extern u8 D_801776D8;
+extern u8 D_801776DC;
+extern s8 D_801775EF;
+extern u8 D_80177920;
+extern s32 D_8017763C;
+extern s32 D_80177644;
+extern s32 D_8017764C;
+extern s32 D_80177660;
+
+extern void func_80072358(void);
+
+RECOMP_PATCH void func_800723EC(void) {
+    s32 sp24;
+    s32 sp20;
+    s32 sp1C;
+
+    if (gCameraType < 2) {
+        return;
+    }
+    sp1C = 0;
+    if (D_8016523E == 0) {
+        if ((gPlayerObject->Vel.x == 0.0f) && (gPlayerObject->Vel.y == 0.0f) && (gPlayerObject->Vel.z == 0.0f)) {
+            sp1C = 1;
+        }
+    } else if (D_8016523E == 6) {
+        if ((gPlayerObject->Vel.x == 0.0f) && (gPlayerObject->Vel.y == 0.0f) && (gPlayerObject->Vel.z == 0.0f)) {
+            sp1C = 1;
+        }
+    } else if (D_8016523E == 4) {
+        sp1C = 1;
+    }
+    sp24 = 0;
+    sp20 = 0;
+    if (sp1C != 0) {
+        if (gActiveContButton & L_CBUTTONS) {
+            sp24 = 1;
+            if (D_80177680 < 30.0f) {
+                D_80177680 += 2.0f;
+            }
+        } else if (gActiveContButton & R_CBUTTONS) {
+            sp24 = 1;
+            if (D_80177680 > -30.0f) {
+                D_80177680 -= 2.0f;
+            }
+        }
+        if (gActiveContButton & U_CBUTTONS) {
+            sp20 = 1;
+            if (D_801776A8 < 20.0f) {
+                D_801776A8 += 1.0f;
+            }
+        }
+    }
+    if (sp24 == 0) {
+        if (D_80177680 > 0.0f) {
+            D_80177680 -= 2.0f;
+        } else if (D_80177680 < 0.0f) {
+            D_80177680 += 2.0f;
+        }
+    }
+    if (sp20 == 0) {
+        if (D_801776A8 > 0.0f) {
+            D_801776A8 -= 1.0f;
+        } else if (D_801776A8 < 0.0f) {
+            D_801776A8 += 1.0f;
+        }
+    }
+    if ((D_801776A8 != 0.0f) || (D_80177680 != 0.0f)) {
+        func_80072358();
+        gDebugDispType = gLevelInfo[gCurrentLevel]->unk5;
+        gView.rot.x = Math_WrapAngle(gView.rot.x, D_801776A8);
+        gView.rot.y = Math_WrapAngle(gView.rot.y, D_80177680);
+    }
+}
+
+void Math_Mat3f_Inverse(Matrix, Matrix); /* extern */
+extern void func_80019050(s32);
+
+RECOMP_PATCH void func_80019510(s32 arg0, s32 arg1, s32 arg2) {
+    Mtx spA8;
+    Matrix sp68;
+    Matrix sp28;
+
+    if (arg2 != 0) {
+        func_80019050(arg0);
+    }
+    guMtxL2F(sp68, &D_8016E104->unk00[2]);
+    guMtxCatF(gObjects[arg0].unk64, sp68, sp68);
+    guMtxF2L(sp68, &spA8);
+    if (arg1 == 0) {
+        //recomp_printf("Setting mtx of type 0\n");
+        D_8016E104->unkE0[D_8016E3A4] = spA8;
+        gEXMatrixGroupDecomposeInterpolate(gMasterDisplayList++, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
+        gSPMatrix(gMasterDisplayList++, &D_8016E104->unkE0[D_8016E3A4++], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        gEXPopMatrixGroup(gMasterDisplayList++, G_MTX_MODELVIEW);
+    } else if (arg1 == 1) {
+        //recomp_printf("Setting mtx of type 1\n");
+        D_8016E3B4 = gObjects[arg0].Scale.x;
+        D_8016E3BC = gObjects[arg0].Scale.y;
+        D_8016E3C4 = gObjects[arg0].Scale.z;
+        D_8016E104->unk00[1] = spA8;
+    } else if (arg1 == 2) {
+        
+       // recomp_printf("Setting mtx of type 2\n");
+        guMtxIdentF(sp28);
+        Math_Mat3f_Inverse(sp28, sp68);
+        Math_Mat3f_Scale(sp28, gObjects[arg0].Scale.x, gObjects[arg0].Scale.y, gObjects[arg0].Scale.z);
+        guMtxCatF(sp28, sp68, sp68);
+        guMtxF2L(sp68, &spA8);
+        D_8016E104->unkE0[D_8016E3A4] = spA8;
+        gSPMatrix(gMasterDisplayList++, &D_8016E104->unkE0[D_8016E3A4++], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+    } else if (arg1 == 3) {
+        //recomp_printf("Setting mtx of type 3\n");
+        guMtxF2L(sp68, &spA8);
+        D_8016E104->unkE0[D_8016E3A4] = spA8;
+        gSPMatrix(gMasterDisplayList++, &D_8016E104->unkE0[D_8016E3A4++], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+    }
+}
+
+extern void Check_PakState(void);
+
+RECOMP_PATCH void func_80000964(void) {
+    s32 sp34 = 0;
+    u32 sp30 = 0;
+    OSMesg sp2C = 0;
+    s32 sp28;
+    s16 temp_s0;
+
+    // why did you do this twice...?
+    sp34 = 0;
+    sp30 = 0;
+    sp2C = 0;
+
+    D_80165254 = 1;
+    D_8016525C = 1;
+    D_80165284 = 0;
+    D_80165264 = 0;
+    sp28 = -1;
+    if (D_8016524C == 1) {
+        sp30 = 2;
+        osViSetYScale(1.0f);
+        osViBlack(TRUE);
+        Check_PakState();
+        func_8001ECA0();
+    }
+    while (sp28 != 0) {
+        osRecvMesg(&D_8016E0B8, &sp2C, 1);
+        switch (*(s16*) sp2C) {
+            case 1:
+                if (D_8016E0A0 != 0) {
+                    func_8001E80C();
+                }
+                if ((sp30 < 2) && (D_8016E098 != 0)) {
+                    bufferID = sp34;
+                    func_8001D9E4(&D_80340000[sp34]);
+                    sp30 += 1;
+                    sp34 ^= 1;
+                }
+                if ((D_80165264 != 0) && (sp28 == -1)) {
+                    sp28 = 0x10;
+                    func_8001ECA0();
+                    sp30 += 2;
+                }
+                if (sp28 > 0) {
+                    sp28 -= 1;
+                }
+                break;
+            case 2:
+                sp30 -= 1;
+                break;
+            case 4:
+                sp30 += 2;
+                osViSetYScale(1.0f);
+                osViBlack(TRUE);
+                Check_PakState();
+                func_8001ECA0();
+                break;
+        }
+    }
+    func_8001EE64();
+}
+
+extern Gfx *D_801775AC;
+extern Gfx *D_801775B4;
+
+// draw skybox?
+RECOMP_PATCH void func_8006C428(f32 arg0, f32 arg1, s32 img_width, s32 unused) {
+    s32 sp84;
+    s32 sp80;
+    s32 sp7C;
+    s32 sp78;
+    s32 ulx;
+    s32 uly;
+    s32 width;
+    s32 height;
+    s32 i; // sp64
+
+    gSPClearGeometryMode(gMasterDisplayList++, G_SHADE | G_CULL_BOTH | G_FOG | G_LIGHTING | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_LOD | G_SHADING_SMOOTH);
+    gSPSetGeometryMode(gMasterDisplayList++, G_ZBUFFER | G_SHADE | G_CULL_BACK | G_LIGHTING | G_SHADING_SMOOTH);
+    gDPSetTexturePersp(gMasterDisplayList++, G_TP_NONE);
+    gDPSetRenderMode(gMasterDisplayList++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
+    gDPSetCombineMode(gMasterDisplayList++, G_CC_DECALRGB, G_CC_DECALRGB);
+    gDPSetColorDither(gMasterDisplayList++, G_CD_BAYER);
+    gDPSetTextureFilter(gMasterDisplayList++, G_TF_BILERP);
+    gDPSetTextureLUT(gMasterDisplayList++, G_TT_RGBA16);
+    gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, D_801775AC);
+    gDPTileSync(gMasterDisplayList++);
+    gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_4b, 0, 0x0100, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+    gDPLoadSync(gMasterDisplayList++);
+    gDPLoadTLUTCmd(gMasterDisplayList++, G_TX_LOADTILE, 15);
+    gDPPipeSync(gMasterDisplayList++);
+
+    sp80 = (s32) arg1 / 4;
+    uly = (s32)(arg1 * 4.0f) & 0xF;
+    if (uly != 0) {
+        sp80 += 1;
+        uly = 0x10 - uly;
+    }
+    sp78 = 0x1E;
+    height = 0x1E0;
+    sp84 = (s32) arg0 / 8;
+    sp84 *= 2;
+    ulx = (s32)(arg0 * 4.0f) & 0x1F;
+    if (ulx != 0) {
+        sp84 += 2;
+        ulx = 0x20 - ulx;
+    }
+    sp7C = 0x50;
+    width = 0x500;
+
+    ulx -= 0;
+    uly -= 0;
+
+    for(i = 0; i < 2; i++) {
+        gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_8b, img_width >> 1, D_801775B4);
+        gDPSetTile(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_8b, (((sp84 + sp7C - sp84 + 1) >> 1) + 7) >> 3, 0, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+        gDPLoadSync(gMasterDisplayList++);
+        gDPLoadTile(gMasterDisplayList++, G_TX_LOADTILE, (sp84 * 2), (sp80 * 4), ((sp84 + sp7C) * 2), ((sp80 + sp78) * 4));
+        gDPPipeSync(gMasterDisplayList++);
+        gDPSetTile(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_4b, ((s32) (((s32) (((sp84 + sp7C) - sp84) + 1) >> 1) + 7) >> 3), 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
+        gDPSetTileSize(gMasterDisplayList++, G_TX_RENDERTILE, (sp84 * 4), (sp80 * 4), ((sp84 + sp7C) * 4), ((sp80 + sp78) * 4));
+        gDPSetTileSize(gMasterDisplayList++, G_TX_RENDERTILE, 0, 0, (sp7C * 4), (sp78 * 4));
+        gEXPushScissor(gMasterDisplayList++);
+        gEXSetScissorAlign(gMasterDisplayList++, 0, 0, -4, -4, 0, 0, 0, 0, 320, 240);
+        gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_STRETCH);
+        recomp_printf("[func_8006C428] 0x%08X 0x%08X 0x%08X 0x%08X\n", ulx, uly, ulx + width, uly + height);
+        gSPTextureRectangle(gMasterDisplayList++, ulx, uly, (ulx + width), (uly + height), G_TX_RENDERTILE, 0, 0, 0x0100, 0x0100);
+        gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_AUTO);
+        gEXPopScissor(gMasterDisplayList++);
+        sp80 += sp78;
+        uly += height;
+    }
 }

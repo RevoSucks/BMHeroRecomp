@@ -35,6 +35,7 @@ void osWriteBackDCacheAll(void);
 #define osYieldThread osYieldThread_recomp
 #define osContInit osContInit_recomp
 #define osWritebackDCacheAll osWritebackDCacheAll_recomp
+#define osExQueueDisplaylistEvent osExQueueDisplaylistEvent_recomp
 
 #include "ultra64.h"
 #pragma GCC diagnostic push
