@@ -6,7 +6,7 @@ LD      ?= ld.lld
 CFLAGS   := -target mips -mips2 -mabi=32 -g -G0 -mno-abicalls -mno-odd-spreg -mno-check-zero-division \
 			-fomit-frame-pointer -ffast-math -fno-unsafe-math-optimizations -fno-builtin-memset \
 			-Wall -Wextra -Wno-incompatible-library-redeclaration -Wno-unused-parameter -Wno-unknown-pragmas -Wno-unused-variable -Wno-unused-but-set-variable -Wno-missing-braces -Wno-unsupported-floating-point-opt -Wno-switch -D_MIPS_SZLONG=32
-CPPFLAGS := -nostdinc -DF3DEX_GBI -D_LANGUAGE_C -DMIPS -I dummy_headers -I ../lib/bmhero/include -I ../lib/bmhero/include/libultra -I ../lib/bmhero/src -I ../lib/rt64/include -I ../lib/N64ModernRuntime/ultramodern/include -I ../lib/N64ModernRuntime/ultramodern/include/ultramodern
+CPPFLAGS := -nostdinc -DF3DEX_GBI -D_LANGUAGE_C -DMIPS -I dummy_headers -I ../lib/bmhero/include -I ../lib/bmhero/include/libultra -I ../lib/bmhero/src -I ../lib/rt64/include -I ../lib/N64ModernRuntime/ultramodern/include -I ../lib/N64ModernRuntime/ultramodern/include/ultramodern -I ../lib/bmhero/src
 LDFLAGS  := -nostdlib -T patches.ld -T syms.ld -Map patches.map --unresolved-symbols=ignore-all --emit-relocs
 
 C_SRCS := $(wildcard *.c)

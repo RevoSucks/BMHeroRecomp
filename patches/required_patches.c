@@ -7,6 +7,7 @@
 #include "PR/os_message.h"
 #include "PR/os_cont.h"
 #include "ultramodern/extensions.h"
+#include "code/71AA0.h"
 
 unsigned long long dummy = 0x0123456789ABCDEFULL;
 
@@ -357,10 +358,12 @@ RECOMP_PATCH void func_80060F00(f32 x, f32 y, s32 width, s32 height, f32 scale_x
     s32 spC8;
     f32 spC4;
 
-    recomp_printf("[func_80060F00] x %.6f\n", x);
-    recomp_printf("[func_80060F00] y %.6f\n", y);
-    recomp_printf("[func_80060F00] width 0x%08X\n", width);
-    recomp_printf("[func_80060F00] height 0x%08X\n", height);
+    if (0) {
+        recomp_printf("[func_80060F00] x %.6f\n", x);
+        recomp_printf("[func_80060F00] y %.6f\n", y);
+        recomp_printf("[func_80060F00] width 0x%08X\n", width);
+        recomp_printf("[func_80060F00] height 0x%08X\n", height);
+    }
 
     gDPPipeSync(gMasterDisplayList++);
     gDPSetCycleType(gMasterDisplayList++, G_CYC_1CYCLE);
@@ -458,8 +461,10 @@ RECOMP_PATCH void func_80060F00(f32 x, f32 y, s32 width, s32 height, f32 scale_x
     ulx = (s32)(x * 4.0f + 0.5f);
     lrx = (s32)(x * 4.0f + (width * scale_x) * 4.0f + 0.5f);
 
-    recomp_printf("ulx calculated: 0x%08X\n", ulx);
-    recomp_printf("lrx calculated: 0x%08X\n", lrx);
+    if (0) {
+        recomp_printf("ulx calculated: 0x%08X\n", ulx);
+        recomp_printf("lrx calculated: 0x%08X\n", lrx);
+    }
 	
 	s32 current_uly = (s32)(y * 4.0f + 0.5f);
 
@@ -870,4 +875,442 @@ RECOMP_PATCH void func_80000964(void) {
         }
     }
     func_8001EE64();
+}
+
+// -----------------------------------------------
+// Main game loop
+// -----------------------------------------------
+
+extern void func_80082E38(s32);
+extern void func_80000DAC(void);
+extern void func_803303A4_unk_bin_6(void);
+extern void func_80000D4C(void);
+extern void func_80330440_unk_bin_5(void);
+extern void func_80000E6C(void);
+extern s32 func_80330594_unk_bin_8(void);
+extern s32 func_803316CC_unk_bin_9(s32);
+extern s32 func_8033148C_unk_bin_10(void);
+extern void func_8008279C(void);
+extern void func_800829AC(void);
+extern s32 func_80335DE4_unk_bin_2(void);
+extern void func_80082CC4(void);
+extern void func_80081C50(void);
+extern void func_800824A8(void);
+extern void func_80082BBC(void);
+extern void func_80082678(void);
+extern void func_800828A4(void);
+extern void func_80082AB4(void);
+extern void func_80082500(void);
+extern void func_8033248C_unk_bin_7(s32, s8);
+extern void func_80332BDC_unk_bin_10(void);
+extern s32 func_80331154_unk_bin_3(void);
+extern s32 func_80333164_unk_bin_4(void);
+
+// used for hotfix to reverse bits of gControllerBits
+static int patched = 0;
+
+RECOMP_PATCH void func_80083180(s32 arg0) {
+    s32 sp2C_pad;
+    s8 pad2B;
+    s8 pad2A;
+    s8 pad29;
+    s8 sp28;
+    s8 sp27;
+    s8 pad26;
+    s8 pad25;
+    s8 pad24;
+    s32 sp20;
+
+    /* Flowgraph is not reducible, falling back to gotos-only mode. */
+    if (arg0 != 0) {
+        func_80082E38(arg0);
+        if (arg0 == 0x64) {
+            D_8016E3CC = 0;
+            arg0 = 0;
+            D_8016E3D4 = 0;
+            D_80177630 = 0;
+            goto loop_67;
+        }
+    }
+    func_80016D74(0);
+
+    // HOTFIX: the library commit used is currently broken, and for public build reasons, we
+    // cannot at the moment update it for live builds. reverse the bits for the controller and
+    // mark it as patched.
+    if (patched == 0) {
+        u8 contPort[4];
+        u8 newVal = 0;
+
+        if(0) recomp_printf("gControllerBits: 0x%02X\n", gControllerBits);
+        for(int i = 0; i < 4; i++) {
+            contPort[i] = gControllerBits & (1 << i);
+        }
+
+        // doing it manually cause whatever
+        if (contPort[0]) newVal |= (1 << 3);
+        if (contPort[1]) newVal |= (1 << 2);
+        if (contPort[2]) newVal |= (1 << 1);
+        if (contPort[3]) newVal |= (1 << 0);
+
+        gControllerBits = newVal;
+        if(0) recomp_printf("gControllerBits: 0x%02X\n", gControllerBits);
+        patched = 1;
+    }
+
+    if (!(gControllerBits & 1)) {
+        PlayTrack_WithVolLoop(-1, -1, 0);
+        func_80000DAC();
+        func_803303A4_unk_bin_6();
+    }
+
+block_5:
+    PlayTrack_WithVolLoop(-1, -1, 0);
+    func_80000D4C();
+    func_80330440_unk_bin_5();
+
+demo_init:
+    Demo_Start(0);
+
+block_7:
+    func_80000E6C();
+
+    if ((sp20 = func_80330594_unk_bin_8()) == 1) {
+        goto demo_init;
+    }
+
+    if (gShowDebugMenu == 1) {
+        gShowDebugMenu = 1;
+    } else if (gShowDebugMenu == 2) {
+        gShowDebugMenu = 1;
+        if (arg0 == 0) {
+            return;
+        }
+    }
+
+    D_80134888 = 0;
+    D_8013488C = 0;
+block_15:
+    PlayTrack_WithVolLoop(0x1C, -1, 1);
+loop_16:
+    func_80000CEC();
+    sp20 = func_80333164_unk_bin_4();
+    if (sp20 == 0) {
+        goto CASE_0;
+    } else if (sp20 == 1) {
+        goto CASE_1;
+    } else if (sp20 == 2) {
+        D_8013488D = 0;
+        goto loop_37;
+    } else if (sp20 == 3) {
+        goto CASE_3;
+    } else {
+        PlayTrack_WithVolLoop(-1, -1, 1);
+        goto block_7;
+    }
+CASE_0:
+    D_80177630 = 0;
+    goto block_49;
+
+CASE_1:
+    sp20 = 0;
+
+    while (TRUE) {
+        func_80000ECC();
+        sp20 = func_803316CC_unk_bin_9(sp20);
+        if (sp20 != 6) {
+            func_80000E0C();
+            func_8033248C_unk_bin_7(sp20, 1);
+        } else {
+            break;
+        }
+    }
+
+    goto loop_16;
+
+CASE_3:
+    func_8005FBD0();
+    func_800880E4();
+    D_8016E3D4 = 0;
+    gCurrentLevel = MAP_BOMBER_STAR_HUB_CUTSCENE;
+    D_80177630 = 4;
+    goto block_49;
+
+loop_37:
+    func_80000F2C();
+    sp20 = func_8033148C_unk_bin_10();
+
+    if (sp20 == 0) {
+        PlayTrack_WithVolLoop(-1, -1, 0);
+        func_80000F2C();
+        func_80332BDC_unk_bin_10();
+        PlayTrack_WithVolLoop(0x1C, -1, 1);
+        goto loop_37;
+    } else if (sp20 == 1) {
+        func_80088094();
+        D_8016E3D4 = 0;
+        gCurrentLevel = 0xAC;
+        D_80177630 = 2;
+        goto block_49;
+    } else if (sp20 == 2) {
+        func_800880E4();
+        D_8016E3D4 = 0;
+        gCurrentLevel = 0xB1;
+        D_80177630 = 3;
+        goto block_49;
+    } else if (sp20 == 3) {
+        D_80134801 = 0;
+        D_80177630 = 1;
+        goto block_49;
+    }
+    goto loop_16;
+block_49:
+    D_8016E3CC = 0;
+    if (D_80177630 >= 2) {
+        D_80177600 = 0;
+        goto loop_133;
+    }
+block_51:
+    func_800880E4();
+    if (D_80134801 == -1) {
+        func_80025D4C(D_8013488C);
+        func_8002598C(D_8013488C);
+        D_80134800 = 0;
+        D_80134803 = 0;
+        D_80134802 = 0;
+        D_80134801 = 0;
+        func_8006A2BC();
+        func_800250A0((s32) D_8013488C);
+        func_8002536C(D_8013488C, 0, 0, 0, 2);
+        func_80024EF4(D_8013488C);
+        D_80134801 = 0;
+        D_80134802 = 0;
+        D_80134803 = 0;
+        D_80134800 = 0;
+        func_8008279C();
+    } else {
+        func_80025978(D_8013488C);
+        func_800252AC(D_8013488C, &D_80134801, &D_80134802, &D_80134803, &D_80134800);
+    }
+block_54:
+    func_800251D4(D_8013488C);
+    if (D_80177630 == 1) {
+        D_80134801 = 0;
+        D_80134802 = 0;
+        D_80134803 = 0;
+        D_80134800 = 0;
+        func_800829AC();
+    }
+
+block_56:
+    PlayTrack_WithVolLoop(0x1A, -1, 1);
+    func_80000C2C();
+    sp20 = func_80335DE4_unk_bin_2();
+    if (sp20 != 0) {
+        if (D_80177630 == 0) {
+            goto block_15;
+        } else {
+            goto loop_37;
+        }
+    }
+
+    if (func_800600B8(0, D_80134801) != 0 || func_800600B8(1, D_80134802) != 0 || func_8006A054() != 0) {
+        D_8016E3D4 = 1;
+    } else {
+        D_8016E3D4 = 0;
+    }
+
+    func_80069F0C(D_8016E3D4);
+    func_80082CC4();
+loop_67:
+    func_80081C50();
+loop_68:
+    sp28 = func_800253EC(D_8013488C) & 2;
+    sp27 = func_80025764(D_8013488C);
+    func_80025608(D_8013488C);
+    func_800258A0(D_8013488C);
+    func_800882C8();
+    D_80177628 = 0;
+    func_800824A8();
+    if (D_8016E3CC == -1) {
+        goto end;
+    } else if (D_8016E3CC == 4) {
+        func_80025674(D_8013488C);
+        func_8002590C(D_8013488C);
+        func_80088338();
+        func_8002598C(D_8013488C);
+        func_80024EF4(D_8013488C);
+        goto block_56;
+    } else if (D_8016E3CC == 1) {
+        func_80025674(D_8013488C);
+        func_8002590C(D_8013488C);
+
+        if (gCurrentLevel == MAP_BOMBER_BASE_ENTRANCE || gCurrentLevel == MAP_AIR_ROOM_SELECT || gCurrentLevel == MAP_ZERO_G_ENTRANCE || gCurrentLevel == MAP_MIRROR_ROOM_ENTRANCE ||
+            gCurrentLevel == MAP_NATIA_1_ENTRANCE) {
+        } else {
+            func_80069FD8();
+            func_80069F0C(1);
+        }
+
+        func_80088248(-1);
+        if (gLifeCount == 0) {
+            func_80000C8C();
+            if (func_80331154_unk_bin_3() == 0) {
+                func_80088134();
+                func_8002598C(D_8013488C);
+                func_80024EF4(D_8013488C);
+                goto block_56;
+            } else {
+                func_80088184();
+                func_8002598C(D_8013488C);
+                func_80024EF4(D_8013488C);
+                if (D_80177630 == 0) {
+                    PlayTrack_WithVolLoop(-1, -1, 1);
+                    goto block_7;
+                } else {
+                    goto loop_37;
+                }
+            }
+        } else {
+            func_800881D4();
+            func_8002598C(D_8013488C);
+            func_80024EF4(D_8013488C);
+            goto loop_67;
+        }
+    } else if (D_8016E3CC == 2 || D_8016E3CC == 3) {
+        func_80024EF4(D_8013488C);
+
+        if (D_8016E3CC == 3 || (D_8016E3D4 != 0 && D_80177620 != 0)) {
+            if (gCurrentLevel == 0x9E) {
+                gHealthCount = gMaxHealth;
+                gBombCount = 3;
+                gFireCount = 3;
+                func_8002598C(D_8013488C);
+                func_80024EF4(D_8013488C);
+            }
+
+            func_80069FD8();
+            if (func_800600B8(0, D_80134801) != 0) {
+                func_80000E0C();
+                if (D_8016E3D4 == 0) {
+                    func_8033248C_unk_bin_7((s32) D_80134801, 0);
+                } else {
+                    func_8033248C_unk_bin_7((s32) D_80134801, 1);
+                }
+            }
+
+            if (D_80177630 == 0) {
+                if (gCurrentLevel == MAP_CUTSCENE_BAGULAR_3_WIN) {
+
+                    if (D_8016E3D4 == 0 || !(func_800253EC(D_8013488C) & 2)) {
+                        Demo_Start(1);
+                        func_80082BBC();
+                    }
+
+                    if (D_8016E3D4 == 0 && (func_800253EC(D_8013488C) & 2)) {
+                        func_80082678();
+                    }
+
+                    D_80134803 = 0;
+                    D_80134802 = 0;
+                    D_80134801 = 0;
+                    D_80134800 = 0;
+                    goto block_5;
+                } else if (gCurrentLevel == 0x55) {
+                    func_800828A4();
+                    D_80134803 = 0;
+                    D_80134802 = 0;
+                    D_80134801 = 0;
+                    D_80134800 = 0;
+                    goto block_5;
+                }
+            }
+
+            if (((D_80177630 == 0) && func_800600B8(0, 4) && sp28 == 0 && (func_800253EC(D_8013488C) & 2))) {
+                func_80082678();
+            }
+
+            if ((D_80177630 == 1 && sp27 == 0 && func_80025764(D_8013488C) != 0)) {
+                func_80082AB4();
+                goto loop_37;
+            }
+
+            if (!(D_8016E3D4 != 0 || D_80134801 >= 4 || func_800600B8(0, D_80134801) == 0)) {
+                func_80082500();
+                func_8002598C(D_8013488C);
+                func_80024EF4(D_8013488C);
+            }
+
+            func_800252AC(D_8013488C, &D_80134801, &D_80134802, &D_80134803, &D_80134800);
+            func_8006A168();
+            func_80069FD8();
+            goto block_56;
+        } else {
+            goto loop_68;
+        }
+    }
+
+    goto block_7;
+loop_133:
+    func_80081C50();
+loop_134:
+    D_80177628 = 0;
+    func_800824A8();
+    if (D_8016E3CC == -1) {
+        goto end;
+    } else if (D_8016E3CC == 4) {
+        if (D_80177630 == 2) {
+            goto loop_37;
+        } else if (D_80177630 == 3) {
+            goto loop_37;
+        } else {
+            goto block_15;
+        }
+    } else if (D_8016E3CC == 1) {
+        func_80069FD8();
+        func_80069F0C(1);
+        func_80088248(-1);
+        if (gLifeCount == 0) {
+            func_80000C8C();
+            if (func_80331154_unk_bin_3() == 0) {
+                if (D_80177630 == 2) {
+                    func_80088094();
+                } else {
+                    func_80088134();
+                }
+                goto loop_133;
+            } else if (D_80177630 == 2) {
+                goto loop_37;
+            } else if (D_80177630 == 3) {
+                goto loop_37;
+            } else {
+                goto block_15;
+            }
+        } else {
+            func_800881D4();
+            goto loop_133;
+        }
+    } else if (D_8016E3CC == 2 || D_8016E3CC == 3) {
+
+        if (D_80177630 == 2) {
+            if (D_8016E432 == 0xAD) {
+                if (D_80177640 == 1) {
+                    D_8016E432 = 0xAD;
+                } else if (D_80177640 == 2) {
+                    D_8016E432 = 0xAE;
+                } else if (D_80177640 == 3) {
+                    D_8016E432 = 0xAE;
+                }
+            } else if (D_8016E432 == 0x7F) {
+                goto loop_37;
+            }
+        } else if (D_80177630 == 3) {
+            if (D_8016E432 == 0x7F) {
+                goto loop_37;
+            }
+        } else if (D_8016E432 == 0x7F) {
+            goto block_15;
+        }
+        goto loop_134;
+    }
+end:;
 }
