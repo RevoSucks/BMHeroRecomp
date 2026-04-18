@@ -15,7 +15,7 @@ set_target_properties(BMHeroRecompiled PROPERTIES
 )
 
 # Create icon files for macOS bundle
-set(ICON_SOURCE ${CMAKE_SOURCE_DIR}/icons/512.png)
+set(ICON_SOURCE ${CMAKE_SOURCE_DIR}/icons/app.png)
 set(ICONSET_DIR ${CMAKE_BINARY_DIR}/AppIcon.iconset)
 set(ICNS_FILE ${CMAKE_BINARY_DIR}/resources/AppIcon.icns)
 
