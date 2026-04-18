@@ -96,7 +96,6 @@ jobs:
       - name: Prepare Archive
         run: |
           mv cmake-build/BMHeroRecompiled BMHeroRecompiled
-          rm -rf assets/scss
           tar -czf BMHeroRecompiled.tar.gz BMHeroRecompiled assets/ recompcontrollerdb.txt
       - name: Archive BMHeroRecomp
         uses: actions/upload-artifact@v4
@@ -244,7 +243,6 @@ jobs:
       - name: Prepare Archive
         run: |
           mv cmake-build/BMHeroRecompiled BMHeroRecompiled
-          rm -rf assets/scss
           tar -czf BMHeroRecompiled.tar.gz BMHeroRecompiled assets/ recompcontrollerdb.txt
       - name: Archive BMHeroRecomp
         uses: actions/upload-artifact@v4
@@ -339,7 +337,6 @@ jobs:
           Move-Item -Path "cmake-build/dxil.dll" -Destination "dxil.dll"
           Move-Item -Path "cmake-build/SDL2.dll" -Destination "SDL2.dll"
           Move-Item -Path "cmake-build/BMHeroRecompiled.pdb" -Destination "BMHeroRecompiled.pdb"
-          Remove-Item -Path "assets/scss" -Recurse -Force
       - name: Archive BMHeroRecomp
         uses: actions/upload-artifact@v4
         with:
