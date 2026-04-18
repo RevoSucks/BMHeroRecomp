@@ -61,7 +61,7 @@ jobs:
           token: ${{ secrets.BMHERO_RECOMP }}
           path: bmhero-secret
       - name: Prepare Build
-        run: cp -r bmhero-secret/baserom.z64 ./
+        run: cp -r bmhero-secret/bmhero.z64 ./
 
       - name: Build N64Recomp & RSPRecomp
         run: |
@@ -144,7 +144,7 @@ jobs:
           token: ${{ secrets.BMHERO_RECOMP }}
           path: bmhero-secret
       - name: Prepare Build
-        run: cp -r bmhero-secret/baserom.z64 ./
+        run: cp -r bmhero-secret/bmhero.z64 ./
 
       - name: Prepare Flatpak
         run: |
@@ -209,7 +209,7 @@ jobs:
           token: ${{ secrets.BMHERO_RECOMP }}
           path: bmhero-secret
       - name: Prepare Build
-        run: cp -r bmhero-secret/baserom.z64 ./
+        run: cp -r bmhero-secret/bmhero.z64 ./
 
       - name: Build N64Recomp & RSPRecomp
         run: |
@@ -295,7 +295,7 @@ jobs:
           token: ${{ secrets.BMHERO_RECOMP }}
           path: bmhero-secret
       - name: Prepare Build
-        run: copy .\bmhero-secret\baserom.z64 .\
+        run: copy .\bmhero-secret\bmhero.z64 .\
 
       - name: Build N64Recomp & RSPRecomp
         run: |
@@ -390,7 +390,7 @@ jobs:
           token: ${{ secrets.BMHERO_RECOMP }}
           path: bmhero-secret
       - name: Prepare Build
-        run: cp -r bmhero-secret/baserom.z64 ./
+        run: cp -r bmhero-secret/bmhero.z64 ./
 
       - name: Build N64Recomp & RSPRecomp
         run: |
