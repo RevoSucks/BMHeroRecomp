@@ -52,3 +52,4 @@ osContInit_recomp = 0x8F000110;
 yield_self_1ms = 0x8F000114;
 osWritebackDCacheAll_recomp = 0x8F000118;
 osExQueueDisplaylistEvent = 0x8F00011C;
+__sinf_recomp = 0x8F000120;

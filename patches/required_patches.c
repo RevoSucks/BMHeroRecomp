@@ -144,7 +144,7 @@ extern void thread1_idle(void *arg);
 extern void Parse_Args(void *);
 
 extern void func_8001D4D0(void);
-extern void func_8006D6F4(void);
+extern void Skybox_ProcessDraw(void);
 extern void func_80087C58(void);
 extern void func_8007E678(void);
 extern void func_8001C464(void);
@@ -170,8 +170,6 @@ extern void func_800FF7B4(void);
 extern void yield_self_1ms(void);
 extern void func_8008B030(void);
 
-static int prevent = 0;
-
 RECOMP_PATCH void func_800821E0(void) {
     u16 sp3E;
     s32 temp_t8;
@@ -180,11 +178,11 @@ RECOMP_PATCH void func_800821E0(void) {
 
     func_8001D4D0();
     if (D_80177A20 < 2) {
-        if (D_8017792E == 0) {
+        if (gSkyboxID == 0) {
             Debug_SetBg(1, (s32) D_80177932, (s32) D_80177934, (s32) D_80177938);
         } else {
             Debug_SetBg(0, 0, 0, 0);
-            func_8006D6F4();
+            Skybox_ProcessDraw();
         }
     } else {
         Debug_SetBg(1, 0, 0, 0);
@@ -193,6 +191,25 @@ RECOMP_PATCH void func_800821E0(void) {
     sp34 = gMasterDisplayList++;
     sp34->words.w0 = 0xBC00000E;
     sp34->words.w1 = (u32) sp3E;
+
+    // if any of these will cause a NaN, just pass temporary values in.
+    if ( (gView.eye.x == 0.0f && gView.eye.y == 0.0f && gView.eye.z == 0.0f) ||
+         (gView.at.x  == 0.0f && gView.at.y  == 0.0f && gView.at.z  == 0.0f) ||
+         (gView.up.x  == 0.0f && gView.up.y  == 0.0f && gView.up.z  == 0.0f)) {
+            gView.at.x = 0.0f;
+            gView.at.y = 0.0f;
+            gView.at.z = 0.0f;
+            gView.eye.x = 0.0f;
+            gView.eye.y = 0.0f;
+            gView.eye.z = 1000.0f;
+            gView.rot.x = 0.0f;
+            gView.rot.y = 0.0f;
+            gView.rot.z = 0.0f;
+            gView.up.x = 0.0f;
+            gView.up.y = 1.0f;
+            gView.up.z = 0.0f;
+            gView.dist = 1000.0f;
+        }
 
     guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
              gView.up.x, gView.up.y, gView.up.z);
@@ -309,7 +326,7 @@ RECOMP_PATCH void Debug_SetBg(s32 setColor, char red, char green, char blue) {
 
     if (setColor) {
         gDPSetFillColor(gMasterDisplayList++,
-                        (GPACK_RGBA5551(0, 0, 0, 1) << 16) | GPACK_RGBA5551(0, 0, 0, 1));
+                        (GPACK_RGBA5551(red, green, blue, 1) << 16) | GPACK_RGBA5551(red, green, blue, 1));
 
         gDPFillRectangle(gMasterDisplayList++, 0, 0, 320, 240);
     }
@@ -339,6 +356,11 @@ RECOMP_PATCH void func_80060F00(f32 x, f32 y, s32 width, s32 height, f32 scale_x
     s32 spCC;
     s32 spC8;
     f32 spC4;
+
+    recomp_printf("[func_80060F00] x %.6f\n", x);
+    recomp_printf("[func_80060F00] y %.6f\n", y);
+    recomp_printf("[func_80060F00] width 0x%08X\n", width);
+    recomp_printf("[func_80060F00] height 0x%08X\n", height);
 
     gDPPipeSync(gMasterDisplayList++);
     gDPSetCycleType(gMasterDisplayList++, G_CYC_1CYCLE);
@@ -378,15 +400,24 @@ RECOMP_PATCH void func_80060F00(f32 x, f32 y, s32 width, s32 height, f32 scale_x
     spFC = width;
     spF8 = height;
 
-    if (x < (2.0f * scale_x)) {
+    // hack
+    if (x >= 0.0f && x <= 8.0f) {
+        x = 0.0f;
+    }
+    if (y >= 0.0f && y <= 8.0f) {
+        y = 0.0f;
+    }
+
+    if (x != 0 && x < (2.0f * scale_x)) {
         spC4 = -(x - (2.0f * scale_x));
         spF4 = (spF4 + (s32)(spC4 / scale_x));
         width -= spF4;
         spC8 = (s32)(spC4 / (2.0f * scale_x));
         spC8 = (s32)(spC4 - (2.0f * scale_x * spC8));
         x = ((scale_x * 2.0f) - spC8);
+        recomp_printf("x was less than (2.0f * scale_x). x became %.6f!\n", x);
     }
-    if (y < scale_y) {
+    if (y != 0 && y < scale_y) {
         spC4 = -(y - scale_y);
         spF0 = (spF0 + (s32)(spC4 / scale_y));
         height -= spF0;
@@ -426,6 +457,9 @@ RECOMP_PATCH void func_80060F00(f32 x, f32 y, s32 width, s32 height, f32 scale_x
 
     ulx = (s32)(x * 4.0f + 0.5f);
     lrx = (s32)(x * 4.0f + (width * scale_x) * 4.0f + 0.5f);
+
+    recomp_printf("ulx calculated: 0x%08X\n", ulx);
+    recomp_printf("lrx calculated: 0x%08X\n", lrx);
 	
 	s32 current_uly = (s32)(y * 4.0f + 0.5f);
 
@@ -519,11 +553,9 @@ RECOMP_PATCH s32 func_8000FD9C(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, 
 
     if (arg0->unk0 == 0) {
         //gEXMatrixGroupDecomposeInterpolate((*arg1)++, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
-
-        if (bufferID == 0) {
-            tagged = 1;
-        }
+        
         // world geometry
+        tagged = 1;
         arg6 = func_8000EEE8(arg1, arg2, arg3, arg4, arg5, arg0->unk28, arg6);
         
         // @recomp Clear the matrix group.
@@ -618,7 +650,6 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
             //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[3][0], m->m[3][1], m->m[3][2], m->m[3][3]);
 #define GROUP_TAG_GEOMETRY 0
             gEXMatrixGroupSimple(dlist++, GROUP_TAG_GEOMETRY, G_EX_PUSH, G_MTX_MODELVIEW, 0, -80, 0, 0, 0, 0, 0, 0, 0);
-            //gEXMatrixGroupDecomposeInterpolate(dlist++, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
         }
         gSPMatrix(dlist++, osVirtualToPhysical(&D_8016E104->unkE0[arg6++]),
                   G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
@@ -753,9 +784,7 @@ RECOMP_PATCH void func_80019510(s32 arg0, s32 arg1, s32 arg2) {
     if (arg1 == 0) {
         //recomp_printf("Setting mtx of type 0\n");
         D_8016E104->unkE0[D_8016E3A4] = spA8;
-        gEXMatrixGroupDecomposeInterpolate(gMasterDisplayList++, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
         gSPMatrix(gMasterDisplayList++, &D_8016E104->unkE0[D_8016E3A4++], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
-        gEXPopMatrixGroup(gMasterDisplayList++, G_MTX_MODELVIEW);
     } else if (arg1 == 1) {
         //recomp_printf("Setting mtx of type 1\n");
         D_8016E3B4 = gObjects[arg0].Scale.x;
@@ -841,76 +870,4 @@ RECOMP_PATCH void func_80000964(void) {
         }
     }
     func_8001EE64();
-}
-
-extern Gfx *D_801775AC;
-extern Gfx *D_801775B4;
-
-// draw skybox?
-RECOMP_PATCH void func_8006C428(f32 arg0, f32 arg1, s32 img_width, s32 unused) {
-    s32 sp84;
-    s32 sp80;
-    s32 sp7C;
-    s32 sp78;
-    s32 ulx;
-    s32 uly;
-    s32 width;
-    s32 height;
-    s32 i; // sp64
-
-    gSPClearGeometryMode(gMasterDisplayList++, G_SHADE | G_CULL_BOTH | G_FOG | G_LIGHTING | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_LOD | G_SHADING_SMOOTH);
-    gSPSetGeometryMode(gMasterDisplayList++, G_ZBUFFER | G_SHADE | G_CULL_BACK | G_LIGHTING | G_SHADING_SMOOTH);
-    gDPSetTexturePersp(gMasterDisplayList++, G_TP_NONE);
-    gDPSetRenderMode(gMasterDisplayList++, G_RM_AA_OPA_SURF, G_RM_AA_OPA_SURF2);
-    gDPSetCombineMode(gMasterDisplayList++, G_CC_DECALRGB, G_CC_DECALRGB);
-    gDPSetColorDither(gMasterDisplayList++, G_CD_BAYER);
-    gDPSetTextureFilter(gMasterDisplayList++, G_TF_BILERP);
-    gDPSetTextureLUT(gMasterDisplayList++, G_TT_RGBA16);
-    gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, D_801775AC);
-    gDPTileSync(gMasterDisplayList++);
-    gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_4b, 0, 0x0100, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-    gDPLoadSync(gMasterDisplayList++);
-    gDPLoadTLUTCmd(gMasterDisplayList++, G_TX_LOADTILE, 15);
-    gDPPipeSync(gMasterDisplayList++);
-
-    sp80 = (s32) arg1 / 4;
-    uly = (s32)(arg1 * 4.0f) & 0xF;
-    if (uly != 0) {
-        sp80 += 1;
-        uly = 0x10 - uly;
-    }
-    sp78 = 0x1E;
-    height = 0x1E0;
-    sp84 = (s32) arg0 / 8;
-    sp84 *= 2;
-    ulx = (s32)(arg0 * 4.0f) & 0x1F;
-    if (ulx != 0) {
-        sp84 += 2;
-        ulx = 0x20 - ulx;
-    }
-    sp7C = 0x50;
-    width = 0x500;
-
-    ulx -= 0;
-    uly -= 0;
-
-    for(i = 0; i < 2; i++) {
-        gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_8b, img_width >> 1, D_801775B4);
-        gDPSetTile(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_8b, (((sp84 + sp7C - sp84 + 1) >> 1) + 7) >> 3, 0, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-        gDPLoadSync(gMasterDisplayList++);
-        gDPLoadTile(gMasterDisplayList++, G_TX_LOADTILE, (sp84 * 2), (sp80 * 4), ((sp84 + sp7C) * 2), ((sp80 + sp78) * 4));
-        gDPPipeSync(gMasterDisplayList++);
-        gDPSetTile(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_4b, ((s32) (((s32) (((sp84 + sp7C) - sp84) + 1) >> 1) + 7) >> 3), 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-        gDPSetTileSize(gMasterDisplayList++, G_TX_RENDERTILE, (sp84 * 4), (sp80 * 4), ((sp84 + sp7C) * 4), ((sp80 + sp78) * 4));
-        gDPSetTileSize(gMasterDisplayList++, G_TX_RENDERTILE, 0, 0, (sp7C * 4), (sp78 * 4));
-        gEXPushScissor(gMasterDisplayList++);
-        gEXSetScissorAlign(gMasterDisplayList++, 0, 0, -4, -4, 0, 0, 0, 0, 320, 240);
-        gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_STRETCH);
-        recomp_printf("[func_8006C428] 0x%08X 0x%08X 0x%08X 0x%08X\n", ulx, uly, ulx + width, uly + height);
-        gSPTextureRectangle(gMasterDisplayList++, ulx, uly, (ulx + width), (uly + height), G_TX_RENDERTILE, 0, 0, 0x0100, 0x0100);
-        gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_AUTO);
-        gEXPopScissor(gMasterDisplayList++);
-        sp80 += sp78;
-        uly += height;
-    }
 }
