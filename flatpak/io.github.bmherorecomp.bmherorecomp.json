@@ -1,5 +1,5 @@
 {
-  "id": "io.github.banjorecomp.banjorecomp",
+  "id": "io.github.bmherorecomp.bmherorecomp",
   "runtime": "org.freedesktop.Platform",
   "runtime-version": "25.08",
   "sdk": "org.freedesktop.Sdk",
@@ -17,7 +17,7 @@
   ],
   "modules": [
     {
-      "name": "BanjoRecompiled",
+      "name": "BMHeroRecompiled",
       "buildsystem": "simple",
       "build-commands": [
         "cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_MAKE_PROGRAM=ninja -G Ninja -S lib/N64Recomp -B lib/N64Recomp/cmake-build",
@@ -25,18 +25,18 @@
         "cmake --build lib/N64Recomp/cmake-build --config Release --target RSPRecomp --parallel",
         "cp lib/N64Recomp/cmake-build/N64Recomp N64Recomp",
         "cp lib/N64Recomp/cmake-build/RSPRecomp RSPRecomp",
-        "./N64Recomp banjo.us.rev0.toml",
-        "./RSPRecomp n_aspMain.us.rev0.toml",
+        "./N64Recomp bmhero.toml",
+        "./RSPRecomp aspMain.toml",
         "cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_MAKE_PROGRAM=ninja -DPATCHES_C_COMPILER=clang -DPATCHES_LD=ld.lld -DRECOMP_FLATPAK=ON -G Ninja -S . -B cmake-build",
-        "cmake --build cmake-build --config Release --target BanjoRecompiled --parallel",
+        "cmake --build cmake-build --config Release --target BMHeroRecompiled --parallel",
         "rm -rf assets/scss",
         "mkdir -p /app/bin",
-        "cp cmake-build/BanjoRecompiled /app/bin/BanjoRecompiled",
+        "cp cmake-build/BMHeroRecompiled /app/bin/BMHeroRecompiled",
         "cp recompcontrollerdb.txt /app/bin/recompcontrollerdb.txt",
         "cp -R assets /app/bin/assets",
         "install -Dm644 icons/app.png /app/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png",
-        "install -Dm644 flatpak/io.github.banjorecomp.banjorecomp.metainfo.xml /app/share/metainfo/${FLATPAK_ID}.metainfo.xml",
-        "install -Dm644 flatpak/io.github.banjorecomp.banjorecomp.desktop /app/share/applications/${FLATPAK_ID}.desktop"
+        "install -Dm644 flatpak/io.github.bmherorecomp.bmherorecomp.metainfo.xml /app/share/metainfo/${FLATPAK_ID}.metainfo.xml",
+        "install -Dm644 flatpak/io.github.bmherorecomp.bmherorecomp.desktop /app/share/applications/${FLATPAK_ID}.desktop"
       ],
       "sources": [
         {

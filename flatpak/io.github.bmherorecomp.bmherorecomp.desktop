@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Bomberman Hero: Recompiled
+Exec=/app/bin/BMHeroRecompiled
+Type=Application
+Icon=io.github.bmherorecomp.bmherorecomp
+Categories=Game;
+Comment=Static recompilation of Bomberman Hero for PC.
+MimeType=x-scheme-handler/bmherorecomp
