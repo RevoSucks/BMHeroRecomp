@@ -21,7 +21,7 @@ mkdir -p AppDir/usr/bin
 cp BMHeroRecompiled AppDir/usr/bin/
 cp -r assets/ AppDir/usr/bin/
 cp recompcontrollerdb.txt AppDir/usr/bin/
-cp icons/512.png AppDir/BMHeroRecompiled.png
+cp icons/app.png AppDir/BMHeroRecompiled.png
 cp .github/linux/BMHeroRecompiled.desktop AppDir/
 
 "./linuxdeploy-$LINUX_DEPLOY_ARCH.AppImage" --appimage-extract
