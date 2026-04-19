@@ -4,7 +4,7 @@ This guide will help you build the project on your local machine. The process wi
 
 These steps cover: decompressing the ROM, running the recompiler and finally building the project.
 
-## 1. Clone the BanjoRecomp Repository
+## 1. Clone the BMHeroRecomp Repository
 This project makes use of submodules so you will need to clone the repository with the `--recurse-submodules` flag.
 
 ```bash
@@ -35,13 +35,8 @@ The other tool necessary will be `make` which can be installe via [Chocolatey](h
 choco install make
 ```
 
-## 3. Decompressing the target ROM
-You will need to decompress the NTSC-U 1.0 N64 Banjo-Kazooie ROM (sha1: d6133ace5afaa0882cf214cf88daba39e266c078) before running the recompiler.
-
-The most straightforward way to do this is to set up the [Banjo-Kazooie decompilation](https://gitlab.com/banjo.decomp/banjo-kazooie), which will decompress the ROM when building. Alternatively, you can run the [bk_rom_compressor tool](https://github.com/MittenzHugg/bk_rom_compressor) directly, which is what the decompilation uses to decompress the ROM.
-
-Regardless of which method you use, copy the decompressed ROM to the root of the BanjoRecomp repository with this filename:
-- `banjo.us.v10.decompressed.z64`
+## 3. Acquiring the target ROM
+You will need a NTSC-U 1.0 N64 Bomberman Hero ROM (sha1: a36364b7e59351f7551ab351cb3b41ebc4be285b) before running the recompiler.
 
 ## 4. Generating the C code
 
@@ -49,8 +44,8 @@ Now that you have the required files, you must build [N64Recomp](https://github.
 
 After that, go back to the repository root, and run the following commands:
 ```bash
-./N64Recomp banjo.us.rev0.toml
-./RSPRecomp n_aspMain.us.rev0.toml
+./N64Recomp bmhero.toml
+./RSPRecomp aspMain.toml
 ```
 
 ## 5. Building the Project
@@ -63,12 +58,12 @@ If you prefer the command line or you're on a Unix platform you can build the pr
 
 ```bash
 cmake -S . -B build-cmake -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -G Ninja -DCMAKE_BUILD_TYPE=Release # or Debug if you want to debug
-cmake --build build-cmake --target BanjoRecompiled -j$(nproc) --config Release # or Debug
+cmake --build build-cmake --target BMHeroRecompiled -j$(nproc) --config Release # or Debug
 ```
 
 ## 6. Success
 
-Voilà! You should now have a `BanjoRecompiled` executable in the build directory! If you used Visual Studio this will be `out/build/x64-[Configuration]` and if you used the provided CMake commands then this will be `build-cmake`. You will need to run the executable out of the root folder of this project or copy the assets folder to the build folder to run it.
+Voilà! You should now have a `BMHeroRecompiled` executable in the build directory! If you used Visual Studio this will be `out/build/x64-[Configuration]` and if you used the provided CMake commands then this will be `build-cmake`. You will need to run the executable out of the root folder of this project or copy the assets folder to the build folder to run it.
 
 > [!IMPORTANT]
 > In the game itself, you should be using a standard ROM, not the decompressed one.
