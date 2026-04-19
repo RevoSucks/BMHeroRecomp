@@ -539,12 +539,10 @@ extern u32 D_80055D40[3];
 extern s32 D_80055D4C;
 
 s32 tagged = 0;
+s32 taggedID = 0;
 
 s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6);
 s32 func_8000FC08(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6);
-
-#define gEXMatrixGroupDecomposeInterpolate(cmd, push, proj, edit) \
-    gEXMatrixGroup(cmd, G_EX_ID_IGNORE, G_EX_INTERPOLATE_DECOMPOSE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP)
 
 s32 func_8000F888(UnkStruct_8000F888* arg0, Gfx** arg1, s32 arg2, UNUSED s32 arg3, UNUSED s32* unused, s32* arg5);
 
@@ -554,17 +552,8 @@ RECOMP_PATCH s32 func_8000FD9C(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, 
     D_80055820 = 0;
     guMtxL2F(D_80055828[D_80055820], (Mtx*) &D_8016E104->unk00[1]);
 
-    //recomp_printf("[func_8000FD9C] arg0 (0x%08X) arg1 (0x%08X) arg2 (0x%08X) arg3 (0x%08X)\narg4 (0x%08X) arg5 (0x%08X) arg6 (0x%08X)\n", arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-
     if (arg0->unk0 == 0) {
-        //gEXMatrixGroupDecomposeInterpolate((*arg1)++, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
-        
-        // world geometry
-        tagged = 1;
         arg6 = func_8000EEE8(arg1, arg2, arg3, arg4, arg5, arg0->unk28, arg6);
-        
-        // @recomp Clear the matrix group.
-        //gEXPopMatrixGroup((*arg1)++, G_MTX_MODELVIEW);
     } else if (arg0->unk0 == 1) {
         // objects (bomberman, platform, doors, etc)
         arg6 = func_8000FC08((void*)arg0->unk28, arg1, (s32)arg2, arg3, arg4, arg5, arg6);
@@ -576,7 +565,7 @@ RECOMP_PATCH s32 func_8000FD9C(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, 
 extern void Math_Mat3f_Inverse(Matrix mf, Matrix mf1);
 s32 func_8000E944(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, Gfx* arg5, s32 arg6, s32 arg7);
 
-RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6) {
+RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 id) {
     struct UnkInputStruct8000EEE8_SPEC* spEC;
     Gfx* dlist;
     struct UnkInputStruct8000EEE8_SPE4* spE4;
@@ -644,31 +633,29 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
             guMtxCatF(spA4, D_80055828[D_80055820 - 1], D_80055828[D_80055820]);
             spA0 += 1;
         }
-        guMtxF2L(D_80055828[D_80055820], &D_8016E104->unkE0[arg6]);
+        guMtxF2L(D_80055828[D_80055820], &D_8016E104->unkE0[id]);
+
+#define gEXMatrixGroupDecomposedNormal(cmd, id, push, proj, edit) \
+    gEXMatrixGroupDecomposed(cmd, id, push, proj, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_INTERPOLATE, G_EX_ORDER_LINEAR, edit, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_AUTO)
 
         if (tagged) {
-            Mtx *m = &D_8016E104->unkE0[arg6];
-            //recomp_printf("matrix that was tagged:\n\n");
-            //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[0][0], m->m[0][1], m->m[0][2], m->m[0][3]);
-            //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[1][0], m->m[1][1], m->m[1][2], m->m[1][3]);
-            //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[2][0], m->m[2][1], m->m[2][2], m->m[2][3]);
-            //recomp_printf("0x%08X 0x%08X 0x%08X 0x%08X\n", m->m[3][0], m->m[3][1], m->m[3][2], m->m[3][3]);
-#define GROUP_TAG_GEOMETRY 0
-            gEXMatrixGroupSimple(dlist++, GROUP_TAG_GEOMETRY, G_EX_PUSH, G_MTX_MODELVIEW, 0, -80, 0, 0, 0, 0, 0, 0, 0);
+            Mtx *m = &D_8016E104->unkE0[id];
+            if (id != 0xFFFFFFFF)
+                gEXMatrixGroupDecomposedNormal(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
         }
-        gSPMatrix(dlist++, osVirtualToPhysical(&D_8016E104->unkE0[arg6++]),
+        gSPMatrix(dlist++, osVirtualToPhysical(&D_8016E104->unkE0[id++]),
                   G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPDisplayList(dlist++, (s32) (spEC[arg5].dlist) + (u8*)arg1);
         if (tagged) {
-            gEXPopMatrixGroup(dlist++, G_MTX_MODELVIEW);
-            tagged = 0;
+            if (id != 0xFFFFFFFF)
+                gEXPopMatrixGroup(dlist++, G_MTX_MODELVIEW);
         }
         D_80055820 -= spA0;
     } else if (spEC[arg5].unk0 == 1) {
-        arg6 = func_8000E944(&dlist, arg1, arg2, arg3, arg4, spEC[arg5].dlist, spEC[arg5].u.unk4_as_s, arg6);
+        id = func_8000E944(&dlist, arg1, arg2, arg3, arg4, spEC[arg5].dlist, spEC[arg5].u.unk4_as_s, id);
     }
     *gfx = dlist;
-    return arg6;
+    return id;
 }
 
 RECOMP_PATCH s32 func_8000FC08(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6) {
@@ -1313,4 +1300,228 @@ loop_134:
         goto loop_134;
     }
 end:;
+}
+
+// -------------------------------------
+// Create Model Tag
+// -------------------------------------
+
+extern s32 func_8001A988(void);
+extern void func_8001A2A0(void);
+extern void *func_800122F0(s32);
+extern void func_8001A300(s32);
+
+struct ModelTag* func_80010408(struct UnkInputStruct80010408* arg0, u32 arg1);
+
+RECOMP_PATCH void func_8001BD44(s32 objId, s32 arg1, s32 arg2, s32 arg3) {
+    s32 sp1C;
+
+    if (gObjects[objId].Unk140[arg1] != -1) {
+        return;
+    }
+    sp1C = func_8001A988();
+    gObjects[objId].Unk140[arg1] = sp1C;
+    D_80165290[sp1C].unk0 = arg3;
+    func_8001A2A0();
+    D_8016E3AC = func_800122F0(arg3);
+    if (0) {
+        if (objId >= 0xE && objId < 0x4E) {
+            recomp_printf("[func_8001BD44] creating object with objID 0x%08X (%d)\n", objId, objId);
+        } else if (objId >= 0x4E && objId <= 0x8E) {
+            recomp_printf("[func_8001BD44] creating geometry with objID 0x%08X (%d)\n", objId, objId);
+        } else {
+            recomp_printf("[func_8001BD44] unknown creation with objID 0x%08X (%d)\n", objId, objId);
+        }
+    }
+    
+    D_80165290[sp1C].modelTag = func_80010408((void*)arg3, arg2);
+    func_8001A300(sp1C);
+}
+
+extern void *malloc_game(s32 size);
+extern void func_8000FEB0(void *verts);
+extern void *func_800100E8(void *, s32);
+
+RECOMP_EXPORT void breakpoint_me(int blah) {
+    for(int i = 0; i < blah; i++) {
+        // ;
+    }
+}
+
+// create Model Tag struct
+RECOMP_PATCH struct ModelTag* func_80010408(struct UnkInputStruct80010408* arg0, u32 arg1) {
+    struct ModelTag* modelTag;
+    struct UnkInputStruct80010408_Inner* sp28;
+    s32 i;
+
+    sp28 = arg0->unkC;
+    if (arg0->unk4 <= arg1) {
+        return NULL;
+    }
+
+    modelTag = malloc_game(sizeof(struct ModelTag));
+    func_8000FEB0(&modelTag->verts);
+    switch (sp28[arg1].unk0) { /* irregular */
+        case 0:
+        case 5:
+        case 6:
+            modelTag->type = 0;
+            modelTag->data.dl = (void*) arg1;
+            breakpoint_me(100);
+            break;
+        case 1:
+            
+            D_80055D4C = 0;
+            modelTag->type = 1;
+            modelTag->data.dl = func_800100E8(NULL, sp28[arg1].unk4);
+            break;
+        default:
+            break;
+    }
+
+    for (i = 0; i < 3; i++) {
+        D_80055D30[i] = D_8016E3AC[i + 3];
+    }
+
+    for (i = 0; i < 3; i++) {
+        D_80055D40[i] = D_8016E3AC[i + 6];
+    }
+
+    return modelTag;
+}
+
+extern void func_800183E8(s32 r, s32 g, s32 b, s32 a, s32 arg4, s32 arg5);
+extern void func_80018794(s32 r, s32 g, s32 b, s32 a, s32 arg4, s32 arg5);
+
+// iterate over the geometry chunks
+RECOMP_PATCH void func_8001C70C(void) {
+    struct ObjectStruct* sp3C;
+    s32 sp38;
+    s32 sp34;
+    s32 sp30;
+    s32 sp2C;
+
+    for (sp3C = &gObjects[0x4E], sp38 = 0x4E; sp38 < 0x8E; sp3C++, sp38++) {
+        if (sp3C->actionState != 0) {
+            if ((char) gObjects[sp38].unk139 != 0) {
+                func_80019510(sp38, 1, 0);
+            } else {
+                func_80019510(sp38, 1, 1);
+            }
+            for (sp2C = 0; sp2C < 2; sp2C++) {
+                if (!((u8) sp3C->unk130 & 1) && ((sp34 = sp3C->Unk140[sp2C]) != -1)) {
+                    if (D_8017792C == 0) {
+                        func_8001838C();
+                    } else if (D_8017792C == 1) {
+                        func_800183E8((s32) D_8017793A, (s32) D_8017793E, (s32) D_80177940, 0xFF, (s32) D_80177944,
+                                      (s32) D_80177948);
+                    } else {
+                        func_80018794((s32) D_8017793A, (s32) D_8017793E, (s32) D_80177940, 0xFF, (s32) D_80177944,
+                                      (s32) D_80177948);
+                    }
+                    func_8001B014(sp38, sp2C);
+                    func_8001A488(sp34);
+                    sp30 = D_80165290[sp34].unk0;
+                    tagged = 1;
+                    recomp_printf("[func_8001C70C] tagging geometry with 0x%08X\n", sp38);
+                    taggedID = sp38;
+                    D_8016E3A4 =
+                        func_8000FD9C(D_80165290[sp34].modelTag, &gMasterDisplayList, (void*)sp30, sp30, sp30, sp30, D_8016E3A4);
+                    tagged = 0;
+                }
+            }
+        }
+    }
+}
+
+// some other geometry iterator. This will also need patching.
+RECOMP_PATCH void func_8001C96C(void) {
+    struct ObjectStruct* sp34;
+    s32 sp30;
+    s32 sp2C;
+    s32 sp28;
+
+    func_8001838C();
+    for (sp34 = &gObjects[0x4E], sp30 = 0x4E; sp30 < 0x8E; sp34++, sp30++) {
+        if ((sp34->actionState != 0)) {
+            if (!((u8) sp34->unk130 & 1) && ((sp2C = (s32) sp34->Unk140[3]) != -1)) {
+                func_80019510(sp30, 1, 0);
+                func_8001B014(sp30, 3);
+                func_8001A488(sp2C);
+                sp28 = D_80165290[sp2C].unk0;
+                tagged = 1;
+                recomp_printf("[func_8001C96C] tagging geometry with 0x%08X\n", sp30);
+                taggedID = sp30;
+                D_8016E3A4 =
+                    func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
+                tagged = 0;
+            }
+        }
+    }
+}
+
+// objects
+RECOMP_PATCH void func_8001C464(void) {
+    struct ObjectStruct* sp34;
+    s32 sp30;
+    s32 sp2C;
+    s32 sp28;
+
+    for (sp34 = &gObjects[0xE], sp30 = 14; sp30 < 0x4E; sp34++, sp30++) {
+        if (sp34->actionState != 0) {
+            func_80019510(sp30, 1, 1);
+            if (!((u8) sp34->unk130 & 1) && !(sp34->unk131 & 2) && (((sp2C = sp34->Unk140[0]) != -1))) {
+                func_8001838C();
+                func_8001B014(sp30, 0);
+                func_8001A488(sp2C);
+                sp28 = D_80165290[sp2C].unk0;
+                tagged = 1;
+                recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
+                taggedID = sp30;
+                D_8016E3A4 =
+                    func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
+                tagged = 0;
+            }
+        }
+    }
+}
+
+RECOMP_PATCH void func_8001C5B8(void) {
+    struct ObjectStruct* sp34;
+    s32 sp30;
+    s32 sp2C;
+    s32 sp28;
+
+    for (sp34 = &gObjects[0xE], sp30 = 14; sp30 < 0x4E; sp34++, sp30++) {
+        if (sp34->actionState != 0) {
+            if (!((u8) sp34->unk130 & 1) && !(sp34->unk131 & 2) && (((sp2C = sp34->Unk140[3]) != -1))) {
+                func_80019510(sp30, 1, 0);
+                func_8001838C();
+                func_8001B014(sp30, 3);
+                func_8001A488(sp2C);
+                sp28 = D_80165290[sp2C].unk0;
+                tagged = 1;
+                recomp_printf("[func_8001C5B8] tagging object with 0x%08X\n", sp30);
+                taggedID = sp30;
+                D_8016E3A4 =
+                    func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
+                tagged = 0;
+            }
+        }
+    }
+}
+
+// manual processing of a specific object ID
+RECOMP_PATCH void func_8001C384(s32 objID, s32 arg1) {
+    s32 sp2C;
+    s32 sp28;
+
+    sp2C = (s32) gObjects[objID].Unk140[arg1];
+    func_8001A488(sp2C);
+    sp28 = D_80165290[sp2C].unk0;
+    tagged = 1;
+    recomp_printf("[func_8001C384] tagging misc with 0x%08X\n", objID);
+    taggedID = objID;
+    D_8016E3A4 = func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
+    tagged = 0;
 }
