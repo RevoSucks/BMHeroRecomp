@@ -64,7 +64,7 @@
 
 #include "../../lib/rt64/src/contrib/stb/stb_image.h"
 
-const std::string version_string = "0.2.4";
+const std::string version_string = "0.3.0";
 
 template<typename... Ts>
 void exit_error(const char* str, Ts ...args) {
@@ -698,7 +698,7 @@ int main(int argc, char** argv) {
 
     // Register fonts.
     recompui::register_primary_font("InterVariable.ttf", "Inter Variable");
-    recompui::register_extra_font("Suplexmentary Comic NC.ttf");
+    recompui::register_extra_font("NimbusSansNarrow-Bold.ttf");
 
     // Register configuration path.
     recomp::register_config_path(recompui::file::get_app_folder_path());

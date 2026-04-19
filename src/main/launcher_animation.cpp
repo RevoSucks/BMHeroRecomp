@@ -36,13 +36,13 @@ struct AnimatedSvg {
     float height = 0;
 };
 
+#define FLARE_COUNT 64
+
 struct LauncherContext {
-    AnimatedSvg banjo_svg;
-    AnimatedSvg kazooie_svg;
-    AnimatedSvg jiggy_color_svg;
-    AnimatedSvg jiggy_shine_svg;
-    AnimatedSvg jiggy_hole_svg;
+    std::array<AnimatedSvg, FLARE_COUNT> flare_svgs;
+    AnimatedSvg explosion_svg;
     AnimatedSvg logo_svg;
+    AnimatedSvg recompiled_svg;
     std::array<AnimatedSvg, 4> cloud_svgs;
     recompui::Element *wrapper;
     float wrapper_phase = -1.0f;
@@ -173,7 +173,7 @@ const float animation_skip_time = 10.0f;
 void banjo::launcher_animation_setup(recompui::LauncherMenu *menu) {
     auto context = recompui::get_current_context();
     recompui::Element *background_container = menu->get_background_container();
-    background_container->set_background_color({ 0x1F, 0x63, 0xC2, 0xFF });
+    background_container->set_background_color({ 0x31, 0x00, 0x00, 0xFF });
 
     launcher_context.wrapper = context.create_element<recompui::Element>(background_container, 0);
     launcher_context.wrapper->set_position(recompui::Position::Absolute);
@@ -183,7 +183,7 @@ void banjo::launcher_animation_setup(recompui::LauncherMenu *menu) {
 
     // Disable and hide the options.
     for (auto option : menu->get_game_options_menu()->get_options()) {
-        option->set_font_family("Suplexmentary Comic NC");
+        option->set_font_family("Nimbus Sans Narrow");
         option->set_enabled(false);
         option->set_opacity(0.0f);
         option->set_padding(24.0f);
@@ -193,100 +193,129 @@ void banjo::launcher_animation_setup(recompui::LauncherMenu *menu) {
     }
 
     // The creation order of these is important.
-    launcher_context.jiggy_color_svg = create_animated_svg(context, launcher_context.wrapper, "JiggyColor.svg", 1054.0f, 1044.0f);
-    launcher_context.jiggy_shine_svg = create_animated_svg(context, launcher_context.wrapper, "JiggyShine.svg", 219.0f, 1080.0f);
-    launcher_context.jiggy_hole_svg = create_animated_svg(context, launcher_context.wrapper, "JiggyHole.svg", 2180.0f, 2160.0f);
-    launcher_context.banjo_svg = create_animated_svg(context, launcher_context.wrapper, "Banjo.svg", 649.0f, 622.0f);
-    launcher_context.kazooie_svg = create_animated_svg(context, launcher_context.wrapper, "Kazooie.svg", 626.0f, 774.0f);
+    //launcher_context.jiggy_color_svg = create_animated_svg(context, launcher_context.wrapper, "JiggyColor.svg", 1054.0f, 1044.0f);
+    //launcher_context.jiggy_shine_svg = create_animated_svg(context, launcher_context.wrapper, "JiggyShine.svg", 219.0f, 1080.0f);
+    //launcher_context.jiggy_hole_svg = create_animated_svg(context, launcher_context.wrapper, "JiggyHole.svg", 2180.0f, 2160.0f);
+    //launcher_context.banjo_svg = create_animated_svg(context, launcher_context.wrapper, "Banjo.svg", 649.0f, 622.0f);
+    //launcher_context.kazooie_svg = create_animated_svg(context, launcher_context.wrapper, "Kazooie.svg", 626.0f, 774.0f);
 
-    launcher_context.cloud_svgs[0] = create_animated_svg(context, background_container, "Cloud1.svg", 461.0f, 154.0f);
-    launcher_context.cloud_svgs[1] = create_animated_svg(context, background_container, "Cloud2.svg", 461.0f, 167.0f);
-    launcher_context.cloud_svgs[2] = create_animated_svg(context, background_container, "Cloud3.svg", 295.0f, 167.0f);
-    launcher_context.cloud_svgs[3] = create_animated_svg(context, background_container, "Cloud1.svg", 461.0f, 154.0f);
+    struct EmberFile {
+        const char *filename;
+        float width;
+        float height;
+    };
 
-    launcher_context.logo_svg = create_animated_svg(context, background_container, "Logo.svg", 6187.0f * 0.125f, 2625.0f * 0.125f);
+    static struct EmberFile EmberFilenames[5] = {
+        { "ember1.svg", 400.0f, 720.0f },
+        { "ember2.svg", 400.0f, 300.0f },
+        { "ember3.svg", 400.0f, 250.0f },
+        { "ember4.svg", 400.0f, 581.0f },
+        { "ember5.svg", 400.0f, 560.0f },
+    };
+
+    for(int i = 0; i < FLARE_COUNT; i++) {
+        struct EmberFile *file = &EmberFilenames[rand() % 5];
+        launcher_context.flare_svgs[i] = create_animated_svg(context, background_container, file->filename, file->width * 0.125f, file->height * 0.125f);
+    }
+
+    launcher_context.explosion_svg = create_animated_svg(context, background_container, "Explosion.svg", 400.0f * 5.0f, 243.0f * 5.0f);
+    launcher_context.logo_svg = create_animated_svg(context, background_container, "BMHeroLogo.svg", 800.0f * 1.0f, 480.0f * 1.0f);
+    launcher_context.recompiled_svg = create_animated_svg(context, background_container, "RecompiledLogo.svg", 400.0f * 1.0f, 97.0f * 1.0f);
+
+    const float explosion_duration = 0.3f;
+
+    // Set the random positions of the flares.
+    for(int i = 0; i < FLARE_COUNT; i++) {
+        float x = (float)((rand() % 1920) - (1920 / 2));
+        float y = (float)((rand() % 1080) - (1080 / 2));
+        launcher_context.flare_svgs[i].position_keyframes = {
+            { 0.0f, -300.0f, -10.0f }, // explode from the big explosion
+            { 0.0f + explosion_duration, x, y },
+        };
+    }
 
     // Animate the jiggy hole.
-    launcher_context.jiggy_hole_svg.position_keyframes = {
-        { 0.0f, 0.0f, 0.0f },
-        { 3.0f, 0.0f, -5.0f },
-        { 6.0f, 0.0f, 5.0f },
-        { 9.0f, 0.0f, -5.0f },
-    };
+    //launcher_context.jiggy_hole_svg.position_keyframes = {
+        //{ 0.0f, 0.0f, 0.0f },
+        //{ 3.0f, 0.0f, -5.0f },
+        //{ 6.0f, 0.0f, 5.0f },
+        //{ 9.0f, 0.0f, -5.0f },
+    //};
 
-    launcher_context.jiggy_hole_svg.scale_keyframes = {
-        { 0.0f, 0.0f, 0.0f },
-        { jiggy_scale_anim_start + 0.0f, 0.0f, 0.0f },
-        { jiggy_scale_anim_start + jiggy_scale_anim_length, 1.0f, 1.0f },
-    };
+    //launcher_context.jiggy_hole_svg.scale_keyframes = {
+      //  { 0.0f, 0.0f, 0.0f },
+        //{ jiggy_scale_anim_start + 0.0f, 0.0f, 0.0f },
+        //{ jiggy_scale_anim_start + jiggy_scale_anim_length, 1.0f, 1.0f },
+    //};
 
-    launcher_context.jiggy_hole_svg.rotation_keyframes = {
-        { 0.0f, -45.0f },
-        { jiggy_scale_anim_start + 0.0f, -45.0f },
-        { jiggy_scale_anim_start + jiggy_scale_anim_length, 0.0f },
-    };
+    //launcher_context.jiggy_hole_svg.rotation_keyframes = {
+        //{ 0.0f, -45.0f },
+        //{ jiggy_scale_anim_start + 0.0f, -45.0f },
+        //{ jiggy_scale_anim_start + jiggy_scale_anim_length, 0.0f },
+    //};
 
-    launcher_context.jiggy_hole_svg.position_animation.loop_keyframe_index = 1;
-    launcher_context.jiggy_hole_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
-    launcher_context.jiggy_hole_svg.scale_animation.interpolation_method = InterpolationMethod::Smootherstep;
-    launcher_context.jiggy_hole_svg.rotation_animation.interpolation_method = InterpolationMethod::Smootherstep;
+    //launcher_context.jiggy_hole_svg.position_animation.loop_keyframe_index = 1;
+    //launcher_context.jiggy_hole_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
+    //launcher_context.jiggy_hole_svg.scale_animation.interpolation_method = InterpolationMethod::Smootherstep;
+    //launcher_context.jiggy_hole_svg.rotation_animation.interpolation_method = InterpolationMethod::Smootherstep;
 
     // Copy keyframes from the hole to the color.
-    launcher_context.jiggy_color_svg.position_keyframes = launcher_context.jiggy_hole_svg.position_keyframes;
-    launcher_context.jiggy_color_svg.position_animation = launcher_context.jiggy_hole_svg.position_animation;
-    launcher_context.jiggy_color_svg.scale_keyframes = launcher_context.jiggy_hole_svg.scale_keyframes;
-    launcher_context.jiggy_color_svg.scale_animation = launcher_context.jiggy_hole_svg.scale_animation;
-    launcher_context.jiggy_color_svg.rotation_keyframes = launcher_context.jiggy_hole_svg.rotation_keyframes;
-    launcher_context.jiggy_color_svg.rotation_animation = launcher_context.jiggy_hole_svg.rotation_animation;
+    //launcher_context.jiggy_color_svg.position_keyframes = launcher_context.jiggy_hole_svg.position_keyframes;
+    //launcher_context.jiggy_color_svg.position_animation = launcher_context.jiggy_hole_svg.position_animation;
+    //launcher_context.jiggy_color_svg.scale_keyframes = launcher_context.jiggy_hole_svg.scale_keyframes;
+    //launcher_context.jiggy_color_svg.scale_animation = launcher_context.jiggy_hole_svg.scale_animation;
+    //launcher_context.jiggy_color_svg.rotation_keyframes = launcher_context.jiggy_hole_svg.rotation_keyframes;
+    //launcher_context.jiggy_color_svg.rotation_animation = launcher_context.jiggy_hole_svg.rotation_animation;
 
     // Animate the jiggy shine.
-    launcher_context.jiggy_shine_svg.position_keyframes = {
-        { 0.0f, 700.0f, 0.0f },
-        { jiggy_shine_start, 700.0f, 0.0f },
-        { jiggy_shine_start + jiggy_shine_length, -700.0f, 0.0f },
-    };
+    //launcher_context.jiggy_shine_svg.position_keyframes = {
+      //  { 0.0f, 700.0f, 0.0f },
+        //{ jiggy_shine_start, 700.0f, 0.0f },
+        //{ jiggy_shine_start + jiggy_shine_length, -700.0f, 0.0f },
+    //};
 
-    launcher_context.jiggy_shine_svg.scale_keyframes = {
-        { 0.0f, 0.0f, 0.0f },
-        { jiggy_shine_start, 0.0f, 0.0f },
-        { jiggy_shine_start, 1.0f, 1.0f },
-        { jiggy_shine_start + jiggy_shine_length, 1.0f, 1.0f },
-        { jiggy_shine_start + jiggy_shine_length, 0.0f, 0.0f },
-    };
+    //launcher_context.jiggy_shine_svg.scale_keyframes = {
+      //  { 0.0f, 0.0f, 0.0f },
+        //{ jiggy_shine_start, 0.0f, 0.0f },
+        //{ jiggy_shine_start, 1.0f, 1.0f },
+        //{ jiggy_shine_start + jiggy_shine_length, 1.0f, 1.0f },
+        //{ jiggy_shine_start + jiggy_shine_length, 0.0f, 0.0f },
+    //};
 
-    launcher_context.jiggy_shine_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
+    //launcher_context.jiggy_shine_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
 
     // Animate Banjo.
-    launcher_context.banjo_svg.position_keyframes = {
-        { 0.0f, -1200.0f, 0.0f },
-        { 1.0f, -220.0f, 0.0f },
-        { 2.0f, -220.0f, -5.0f },
-        { 5.0f, -220.0f, 5.0f },
-        { 8.0f, -220.0f, -5.0f },
-    };
+    //launcher_context.banjo_svg.position_keyframes = {
+      //  { 0.0f, -1200.0f, 0.0f },
+//        { 1.0f, -220.0f, 0.0f },
+  //      { 2.0f, -220.0f, -5.0f },
+    //    { 5.0f, -220.0f, 5.0f },
+      //  { 8.0f, -220.0f, -5.0f },
+    //};
 
-    launcher_context.banjo_svg.scale_keyframes = {
-        { 0.0f, 0.0f, 0.0f },
-        { 0.1f, 1.0f, 1.0f },
-    };
+    //launcher_context.banjo_svg.scale_keyframes = {
+      //  { 0.0f, 0.0f, 0.0f },
+        //{ 0.1f, 1.0f, 1.0f },
+    //};
 
-    launcher_context.banjo_svg.rotation_keyframes = {
-        { 0.0f, -20.0f },
-        { 1.0f, 0.0f },
-    };
+    //launcher_context.banjo_svg.rotation_keyframes = {
+      //  { 0.0f, -20.0f },
+        //{ 1.0f, 0.0f },
+    //};
 
-    launcher_context.banjo_svg.position_animation.loop_keyframe_index = 2;
-    launcher_context.banjo_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
-    launcher_context.banjo_svg.rotation_animation.interpolation_method = InterpolationMethod::Smootherstep;
+    //launcher_context.banjo_svg.position_animation.loop_keyframe_index = 2;
+    //launcher_context.banjo_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
+    //launcher_context.banjo_svg.rotation_animation.interpolation_method = InterpolationMethod::Smootherstep;
 
     // Animate Kazooie. Mirror all of Banjo's keyframes except for the scale.
-    launcher_context.kazooie_svg.position_keyframes = launcher_context.banjo_svg.position_keyframes;
-    launcher_context.kazooie_svg.position_animation = launcher_context.banjo_svg.position_animation;
-    launcher_context.kazooie_svg.scale_keyframes = launcher_context.banjo_svg.scale_keyframes;
-    launcher_context.kazooie_svg.scale_animation = launcher_context.banjo_svg.scale_animation;
-    launcher_context.kazooie_svg.rotation_keyframes = launcher_context.banjo_svg.rotation_keyframes;
-    launcher_context.kazooie_svg.rotation_animation = launcher_context.banjo_svg.rotation_animation;
+    //launcher_context.kazooie_svg.position_keyframes = launcher_context.banjo_svg.position_keyframes;
+    //launcher_context.kazooie_svg.position_animation = launcher_context.banjo_svg.position_animation;
+    //launcher_context.kazooie_svg.scale_keyframes = launcher_context.banjo_svg.scale_keyframes;
+    //launcher_context.kazooie_svg.scale_animation = launcher_context.banjo_svg.scale_animation;
+    //launcher_context.kazooie_svg.rotation_keyframes = launcher_context.banjo_svg.rotation_keyframes;
+    //launcher_context.kazooie_svg.rotation_animation = launcher_context.banjo_svg.rotation_animation;
 
+    /*
     for (auto &kf : launcher_context.kazooie_svg.position_keyframes) {
         kf.x = -kf.x;
     }
@@ -294,21 +323,47 @@ void banjo::launcher_animation_setup(recompui::LauncherMenu *menu) {
     launcher_context.kazooie_svg.position_keyframes[2].seconds += 1.5f;
     launcher_context.kazooie_svg.position_keyframes[3].seconds += 1.5f;
     launcher_context.kazooie_svg.position_keyframes[4].seconds += 1.5f;
+    
 
     for (auto &kf : launcher_context.kazooie_svg.rotation_keyframes) {
         kf.deg = -kf.deg;
     }
-
+*/
     // Animate the logo.
     launcher_context.logo_svg.position_keyframes = {
-        { 0.0f, 0.0f, -900.0f },
-        { 1.0f, 0.0f, -900.0f },
-        { 2.0f, 0.0f, -365.0f },
+        { 0.0f, -750.0f, -900.0f },
+        { 1.0f, -750.0f, -900.0f },
+        { 2.0f, -300.0f,  -40.0f },
     };
 
     launcher_context.logo_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
 
+    // Animate the recompiled text.
+    launcher_context.recompiled_svg.position_keyframes = {
+        { 0.0f,   50.0f,  900.0f },
+        { 1.0f,   50.0f,  900.0f },
+        { 2.0f, -250.0f,  175.0f },
+    };
+
+    launcher_context.recompiled_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
+
+    // Animate the explosion gfx    
+    launcher_context.explosion_svg.position_keyframes = {
+        { 0.0f, -300.0f,  -10.0f },
+        { 1.0f, -300.0f,  -10.0f },
+        { 2.0f, -300.0f,  -10.0f },
+    };
+
+    launcher_context.explosion_svg.scale_keyframes = {
+        { 0.0f, 0.0f, 0.0f },
+        { 0.0f, 0.0f, 0.0f },
+        { 0.0f + explosion_duration, 1.0f, 1.0f },
+    };
+
+    launcher_context.explosion_svg.position_animation.interpolation_method = InterpolationMethod::Smootherstep;
+
     // Animate the clouds.
+    /*
     const float cloud_scale_duration = 0.3f;
     launcher_context.cloud_svgs[0].position_keyframes = {
         { 0.0f, 600.0f, -445.0f },
@@ -362,6 +417,7 @@ void banjo::launcher_animation_setup(recompui::LauncherMenu *menu) {
         launcher_context.cloud_svgs[i].position_animation.loop_keyframe_index = 0;
         launcher_context.cloud_svgs[i].position_animation.interpolation_method = InterpolationMethod::Smootherstep;
     }
+    */
 
     // Install an event watch to skip the launcher animation if a keyboard, mouse or controller input is detected.
     SDL_AddEventWatch(&launcher_event_watch, nullptr);
@@ -383,15 +439,21 @@ void banjo::launcher_animation_update(recompui::LauncherMenu *menu) {
     float dp_to_pixel_ratio = background_container->get_dp_to_pixel_ratio();
     float bg_width = background_container->get_client_width() / dp_to_pixel_ratio;
     float bg_height = background_container->get_client_height() / dp_to_pixel_ratio;
-    update_animated_svg(launcher_context.banjo_svg, delta_time, bg_width, bg_height);
-    update_animated_svg(launcher_context.kazooie_svg, delta_time, bg_width, bg_height);
-    update_animated_svg(launcher_context.jiggy_color_svg, delta_time, bg_width, bg_height);
-    update_animated_svg(launcher_context.jiggy_shine_svg, delta_time, bg_width, bg_height);
-    update_animated_svg(launcher_context.jiggy_hole_svg, delta_time, bg_width, bg_height);
+    //update_animated_svg(launcher_context.banjo_svg, delta_time, bg_width, bg_height);
+    //update_animated_svg(launcher_context.kazooie_svg, delta_time, bg_width, bg_height);
+    //update_animated_svg(launcher_context.jiggy_color_svg, delta_time, bg_width, bg_height);
+    //update_animated_svg(launcher_context.jiggy_shine_svg, delta_time, bg_width, bg_height);
+    //update_animated_svg(launcher_context.jiggy_hole_svg, delta_time, bg_width, bg_height);
+    update_animated_svg(launcher_context.explosion_svg, delta_time, bg_width, bg_height);
     update_animated_svg(launcher_context.logo_svg, delta_time, bg_width, bg_height);
+    update_animated_svg(launcher_context.recompiled_svg, delta_time, bg_width, bg_height);
+
+    for(int i = 0; i < FLARE_COUNT; i++) {
+        update_animated_svg(launcher_context.flare_svgs[i], delta_time, bg_width, bg_height);
+    }
 
     for (size_t i = 0; i < launcher_context.cloud_svgs.size(); i++) {
-        update_animated_svg(launcher_context.cloud_svgs[i], delta_time, bg_width, bg_height);
+        //update_animated_svg(launcher_context.cloud_svgs[i], delta_time, bg_width, bg_height);
     }
 
     float wrapper_phase = std::clamp((launcher_context.seconds - jiggy_move_over_start) / (jiggy_move_over_end - jiggy_move_over_start), 0.0f, 1.0f);
