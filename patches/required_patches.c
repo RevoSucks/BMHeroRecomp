@@ -197,23 +197,11 @@ RECOMP_PATCH void func_800821E0(void) {
     if ( (gView.eye.x == 0.0f && gView.eye.y == 0.0f && gView.eye.z == 0.0f) ||
          (gView.at.x  == 0.0f && gView.at.y  == 0.0f && gView.at.z  == 0.0f) ||
          (gView.up.x  == 0.0f && gView.up.y  == 0.0f && gView.up.z  == 0.0f)) {
-            gView.at.x = 0.0f;
-            gView.at.y = 0.0f;
-            gView.at.z = 0.0f;
-            gView.eye.x = 0.0f;
-            gView.eye.y = 0.0f;
-            gView.eye.z = 1000.0f;
-            gView.rot.x = 0.0f;
-            gView.rot.y = 0.0f;
-            gView.rot.z = 0.0f;
-            gView.up.x = 0.0f;
-            gView.up.y = 1.0f;
-            gView.up.z = 0.0f;
-            gView.dist = 1000.0f;
-        }
 
-    guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
-             gView.up.x, gView.up.y, gView.up.z);
+        } else {
+        guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
+                 gView.up.x, gView.up.y, gView.up.z);
+        
     sp30 = gMasterDisplayList++;
     sp30->words.w0 = 0x01030040;
     sp30->words.w1 = (u32) D_8016E104;
@@ -245,6 +233,7 @@ RECOMP_PATCH void func_800821E0(void) {
     if (gDebugShowTimerBar != 0) {
         Debug_DrawProfiler(0x2E, 0xD0);
     }
+    }
 }
 
 extern s32 D_80165254;
@@ -263,6 +252,7 @@ RECOMP_PATCH void func_8001D9E4(void* arg0) {
 
     gEXEnable(gMasterDisplayList++);
     gEXSetRefreshRate(gMasterDisplayList, 60);
+    gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_AUTO);
 
     gSPSegment(gMasterDisplayList++, 0x00, 0x00000000);
     gSPSegment(gMasterDisplayList++, 0x01, osVirtualToPhysical(gFileArray[0].ptr));
@@ -333,180 +323,6 @@ RECOMP_PATCH void Debug_SetBg(s32 setColor, char red, char green, char blue) {
     }
     gDPPipeSync(gMasterDisplayList++);
     gDPSetCycleType(gMasterDisplayList++, G_CYC_1CYCLE);
-}
-
-// Patch the GFX tiler function
-
-extern Gfx* gMasterDisplayList;
-
-// draw a tiled graphic?
-RECOMP_PATCH void func_80060F00(f32 x, f32 y, s32 width, s32 height, f32 scale_x, f32 scale_y, Gfx *arg6, Gfx *arg7, s16 arg8) {
-    s32 spFC;
-    s32 spF8;
-    s32 spF4;
-    s32 spF0;
-    s32 size;
-    s32 spE8;
-    s16 count;
-    s16 i;
-    s32 ulx;
-    s32 uly;
-    s32 lrx;
-    s32 lry;
-    s32 spD0;
-    s32 spCC;
-    s32 spC8;
-    f32 spC4;
-
-    if (0) {
-        recomp_printf("[func_80060F00] x %.6f\n", x);
-        recomp_printf("[func_80060F00] y %.6f\n", y);
-        recomp_printf("[func_80060F00] width 0x%08X\n", width);
-        recomp_printf("[func_80060F00] height 0x%08X\n", height);
-    }
-
-    gDPPipeSync(gMasterDisplayList++);
-    gDPSetCycleType(gMasterDisplayList++, G_CYC_1CYCLE);
-    gSPClearGeometryMode(gMasterDisplayList++, G_SHADE | G_CULL_BOTH | G_FOG | G_LIGHTING | G_TEXTURE_GEN | G_TEXTURE_GEN_LINEAR | G_LOD | G_SHADING_SMOOTH);
-    gSPSetGeometryMode(gMasterDisplayList++, G_ZBUFFER | G_SHADE | G_CULL_BACK | G_LIGHTING | G_SHADING_SMOOTH);
-    gDPSetTexturePersp(gMasterDisplayList++, G_TP_NONE);
-    gDPSetRenderMode(gMasterDisplayList++, G_RM_AA_TEX_EDGE, G_RM_AA_TEX_EDGE2);
-    gDPSetCombineMode(gMasterDisplayList++, G_CC_DECALRGBA, G_CC_DECALRGBA);
-    gDPSetColorDither(gMasterDisplayList++, G_CD_BAYER);
-    gDPSetTextureFilter(gMasterDisplayList++, G_TF_BILERP);
-
-    if (arg8 == 0) {
-        gDPSetTextureLUT(gMasterDisplayList++, G_TT_RGBA16);
-        gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, arg7);
-        gDPTileSync(gMasterDisplayList++);
-        gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_4b, 0, 0x0100, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-        gDPLoadSync(gMasterDisplayList++);
-        gDPLoadTLUTCmd(gMasterDisplayList++, G_TX_LOADTILE, 15);
-        gDPPipeSync(gMasterDisplayList++);
-    } else if (arg8 == 1) {
-        gDPSetTextureLUT(gMasterDisplayList++, G_TT_RGBA16);
-        gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, arg7);
-        gDPTileSync(gMasterDisplayList++);
-        gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_4b, 0, 0x0100, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-        gDPLoadSync(gMasterDisplayList++);
-        gDPLoadTLUTCmd(gMasterDisplayList++, G_TX_LOADTILE, 255);
-        gDPPipeSync(gMasterDisplayList++);
-    } else {
-        gDPSetTextureLUT(gMasterDisplayList++, G_TT_NONE);
-    }
-
-    spD0 = (s32)(1024.0f / scale_x + 0.5f);
-    spCC = (s32)(1024.0f / scale_y + 0.5f);
-    spE8 = 0;
-    spF0 = 0;
-    spF4 = 0;
-    spFC = width;
-    spF8 = height;
-
-    // hack
-    if (x >= 0.0f && x <= 8.0f) {
-        x = 0.0f;
-    }
-    if (y >= 0.0f && y <= 8.0f) {
-        y = 0.0f;
-    }
-
-    if (x != 0 && x < (2.0f * scale_x)) {
-        spC4 = -(x - (2.0f * scale_x));
-        spF4 = (spF4 + (s32)(spC4 / scale_x));
-        width -= spF4;
-        spC8 = (s32)(spC4 / (2.0f * scale_x));
-        spC8 = (s32)(spC4 - (2.0f * scale_x * spC8));
-        x = ((scale_x * 2.0f) - spC8);
-        recomp_printf("x was less than (2.0f * scale_x). x became %.6f!\n", x);
-    }
-    if (y != 0 && y < scale_y) {
-        spC4 = -(y - scale_y);
-        spF0 = (spF0 + (s32)(spC4 / scale_y));
-        height -= spF0;
-        spC8 = (s32)(spC4 / scale_y);
-        spC8 = (s32)(spC4 - (spC8 * scale_y));
-        y = scale_y - spC8;
-    }
-    if (((width * scale_x) + x) > 328.0f) {
-        width = (s32)(width - (((x + (width * scale_x)) - 328.0f) / scale_x));
-    }
-    if (((height * scale_y) + y) > 244.0f) {
-        height = (s32)(height - (((y + (height * scale_y)) - 244.0f) / scale_y));
-    }
-    if (width < 0) {
-        width = 0;
-    }
-    if (spF4 > spFC) {
-        spF4 = spFC;
-    }
-    if (height < 0) {
-        height = 0;
-    }
-    if (spF0 > spF8) {
-        spF0 = spF8;
-    }
-
-    if ((width * height) >= 0x5DD) {
-        size = 0x5DC / width;
-        count = (height / size);
-        if ((height % size) != 0) {
-            count += 1;
-        }
-    } else {
-        count = 1;
-        size = height;
-    }
-
-    ulx = (s32)(x * 4.0f + 0.5f);
-    lrx = (s32)(x * 4.0f + (width * scale_x) * 4.0f + 0.5f);
-
-    if (0) {
-        recomp_printf("ulx calculated: 0x%08X\n", ulx);
-        recomp_printf("lrx calculated: 0x%08X\n", lrx);
-    }
-	
-	s32 current_uly = (s32)(y * 4.0f + 0.5f);
-
-    for (i = 0; i < count; i++) {
-
-        if ((i + 1) == count) {
-            size = height - (i * size);
-        }
-
-        if (arg8 == 0) {
-            gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_8b, spFC >> 1, arg6);
-            gDPSetTile(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_8b, ((((((spF4 + width) - spF4) + 1) >> 1) + 7) >> 3), 0, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-            gDPLoadSync(gMasterDisplayList++);
-            gDPLoadTile(gMasterDisplayList++, G_TX_LOADTILE, spF4 * 2, spF0 * 4, ((spF4 + width) * 2) - 1, ((spF0 + size) * 4) - 4);
-            gDPPipeSync(gMasterDisplayList++);
-            gDPSetTile(gMasterDisplayList++, G_IM_FMT_CI, G_IM_SIZ_4b, ((((((spF4 + width) - spF4) + 1) >> 1) + 7) >> 3), 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-        } else if (arg8 == 1) {
-            gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_8b, spFC, arg6);
-            gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_8b, ((((spF4 + width) - spF4) + 8) >> 3), 0, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-            gDPLoadSync(gMasterDisplayList++);
-            gDPLoadTile(gMasterDisplayList++, G_TX_LOADTILE, (spF4 * 4), (spF0 * 4), ((spF4 + width) * 4) - 4, ((spF0 + size) * 4) - 4);
-            gDPPipeSync(gMasterDisplayList++);
-            gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_8b, ((((spF4 + width) - spF4) + 8) >> 3), 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-        } else {
-            gDPSetTextureImage(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_32b, spFC, arg6);
-            gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_32b, (((((spF4 + width) - spF4) * 2) + 9) >> 3), 0x0000, G_TX_LOADTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-            gDPLoadSync(gMasterDisplayList++);
-            gDPLoadTile(gMasterDisplayList++, G_TX_LOADTILE, (spF4 * 4), (spF0 * 4), ((spF4 + width) * 4) - 4, ((spF0 + size) * 4) - 4);
-            gDPPipeSync(gMasterDisplayList++);
-            gDPSetTile(gMasterDisplayList++, G_IM_FMT_RGBA, G_IM_SIZ_32b, (((((spF4 + width) - spF4) * 2) + 9) >> 3), 0, G_TX_RENDERTILE, 0, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOLOD);
-        }
-
-        gDPSetTileSize(gMasterDisplayList++, G_TX_RENDERTILE, 0, 0, (width * 4) - 4, (size * 4) - 4);
-
-        uly = current_uly;
-        lry = (s32)(uly + (size * scale_y) * 4.0f + 0.5f);
-        current_uly = lry;
-
-        gSPTextureRectangle(gMasterDisplayList++, ulx, uly, lrx, lry, G_TX_RENDERTILE, 0, 0, spD0, spCC);
-        spF0 += size;
-        spE8 += size;
-    }
 }
 
 typedef struct UnkStruct_F280_s {
@@ -1423,7 +1239,7 @@ RECOMP_PATCH void func_8001C70C(void) {
                     func_8001A488(sp34);
                     sp30 = D_80165290[sp34].unk0;
                     tagged = 1;
-                    recomp_printf("[func_8001C70C] tagging geometry with 0x%08X\n", sp38);
+                    //recomp_printf("[func_8001C70C] tagging geometry with 0x%08X\n", sp38);
                     taggedID = sp38;
                     D_8016E3A4 =
                         func_8000FD9C(D_80165290[sp34].modelTag, &gMasterDisplayList, (void*)sp30, sp30, sp30, sp30, D_8016E3A4);
@@ -1450,7 +1266,7 @@ RECOMP_PATCH void func_8001C96C(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                recomp_printf("[func_8001C96C] tagging geometry with 0x%08X\n", sp30);
+                //recomp_printf("[func_8001C96C] tagging geometry with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1476,7 +1292,7 @@ RECOMP_PATCH void func_8001C464(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
+                //recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1501,7 +1317,7 @@ RECOMP_PATCH void func_8001C5B8(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                recomp_printf("[func_8001C5B8] tagging object with 0x%08X\n", sp30);
+                //recomp_printf("[func_8001C5B8] tagging object with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1520,7 +1336,7 @@ RECOMP_PATCH void func_8001C384(s32 objID, s32 arg1) {
     func_8001A488(sp2C);
     sp28 = D_80165290[sp2C].unk0;
     tagged = 1;
-    recomp_printf("[func_8001C384] tagging misc with 0x%08X\n", objID);
+    //recomp_printf("[func_8001C384] tagging misc with 0x%08X\n", objID);
     taggedID = objID;
     D_8016E3A4 = func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
     tagged = 0;

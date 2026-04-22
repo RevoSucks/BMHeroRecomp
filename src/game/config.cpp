@@ -24,78 +24,7 @@
 static void add_general_options(recomp::config::Config &config) {
     using EnumOptionVector = const std::vector<recomp::config::ConfigOptionEnumOption>;
 
-    static EnumOptionVector note_saving_mode_options = {
-        {banjo::NoteSavingMode::Off, "Off", "Off"},
-        {banjo::NoteSavingMode::On, "On", "On"},
-    };
-    config.add_enum_option(
-        banjo::configkeys::general::note_saving_mode,
-        "Note Saving",
-        "Saves collected notes so that you don't need to collect them again when revisiting a level. <recomp-color primary>On</recomp-color> is the default, while <recomp-color primary>off</recomp-color> matches the original game.",
-        note_saving_mode_options,
-        banjo::NoteSavingMode::On
-    );
-    static EnumOptionVector analog_cam_mode_options = {
-        {banjo::AnalogCamMode::Off, "Off", "Off"},
-        {banjo::AnalogCamMode::On, "On", "On"},
-    };
-    config.add_enum_option(
-        banjo::configkeys::general::analog_cam_mode,
-        "Analog Camera",
-        "Enables the analog camera.",
-        analog_cam_mode_options,
-        banjo::AnalogCamMode::Off
-    );
-    config.add_number_option(
-        banjo::configkeys::general::analog_camera_sensitivity,
-        "Analog Camera Sensitivity",
-        "Sets the sensitivity of the right stick analog camera, if enabled.",
-        1, 10, 1, 0, false, 3
-    );
-    config.add_option_hidden_dependency(
-        banjo::configkeys::general::analog_camera_sensitivity,
-        banjo::configkeys::general::analog_cam_mode,
-        banjo::AnalogCamMode::Off
-    );
-    static EnumOptionVector camera_invert_mode_options = {
-        {banjo::CameraInvertMode::InvertNone, "InvertNone", "None"},
-        {banjo::CameraInvertMode::InvertX, "InvertX", "Invert X"},
-        {banjo::CameraInvertMode::InvertY, "InvertY", "Invert Y"},
-        {banjo::CameraInvertMode::InvertBoth, "InvertBoth", "Invert Both"}
-    };
-    config.add_enum_option(
-        banjo::configkeys::general::third_person_camera_invert_mode,
-        "Invert Camera",
-        "Inverts the camera controls for the third person camera if it's enabled. <recomp-color primary>Invert X</recomp-color> is the default and matches the original game.<br /><br />If analog camera is off, only the <recomp-color primary>Invert X</recomp-color> setting will take effect.",
-        camera_invert_mode_options,
-        banjo::CameraInvertMode::InvertX
-    );
-    static EnumOptionVector first_person_invert_mode_options = {
-        {banjo::CameraInvertMode::InvertNone, "InvertNone", "None"},
-        {banjo::CameraInvertMode::InvertX, "InvertX", "Invert X"},
-        {banjo::CameraInvertMode::InvertY, "InvertY", "Invert Y"},
-        {banjo::CameraInvertMode::InvertBoth, "InvertBoth", "Invert Both"}
-    };
-    config.add_enum_option(
-        banjo::configkeys::general::first_person_invert_mode,
-        "Invert First Person View",
-        "Inverts the camera controls in first person view. <recomp-color primary>Invert Y</recomp-color> is the default and matches the original game.",
-        first_person_invert_mode_options,
-        banjo::CameraInvertMode::InvertY
-    );
-    static EnumOptionVector flying_and_swimming_invert_options = {
-        {banjo::CameraInvertMode::InvertNone, "InvertNone", "None"},
-        {banjo::CameraInvertMode::InvertX, "InvertX", "Invert X"},
-        {banjo::CameraInvertMode::InvertY, "InvertY", "Invert Y"},
-        {banjo::CameraInvertMode::InvertBoth, "InvertBoth", "Invert Both"}
-    };
-    config.add_enum_option(
-        banjo::configkeys::general::flying_and_swimming_invert_mode,
-        "Invert Flying & Swimming",
-        "Inverts the controls for swimming and flying. <recomp-color primary>Invert Y</recomp-color> is the default and matches the original game.",
-        flying_and_swimming_invert_options,
-        banjo::CameraInvertMode::InvertY
-    );
+    // stubbed
 }
 
 template <typename T = uint32_t>
@@ -142,12 +71,7 @@ T get_graphics_config_enum_value(const std::string& option_id) {
 }
 
 static void add_sound_options(recomp::config::Config &config) {
-    config.add_percent_number_option(
-        banjo::configkeys::sound::bgm_volume,
-        "Background Music Volume",
-        "Controls the overall volume of background music.",
-        100.0f
-    );
+
 }
 template <typename T = uint32_t>
 T get_sound_config_number_value(const std::string& option_id) {
@@ -160,6 +84,7 @@ int banjo::get_bgm_volume() {
 
 static void add_graphics_options(recomp::config::Config &config) {
     using EnumOptionVector = const std::vector<recomp::config::ConfigOptionEnumOption>;
+    /*
     static EnumOptionVector cutscene_aspect_ratio_mode_options = {
         {banjo::CutsceneAspectRatioMode::Original, "Original", "Original"},
         {banjo::CutsceneAspectRatioMode::Clamp16x9, "Clamp16x9", "16:9"},
@@ -171,7 +96,8 @@ static void add_graphics_options(recomp::config::Config &config) {
         "Sets the aspect ratio limit for cutscenes. Cutscenes have been adjusted to work in <recomp-color primary>16:9</recomp-color>, which is the default option. Wider aspect ratios may show details that weren't meant to be on-screen.",
         cutscene_aspect_ratio_mode_options,
         banjo::CutsceneAspectRatioMode::Clamp16x9
-    );    
+    );
+    */
 }
 
 static void set_control_defaults() {
