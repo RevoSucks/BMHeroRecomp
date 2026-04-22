@@ -28,3 +28,19 @@ ignored = [
 func = "__amHandleFrameMsg"
 vram = 0x8000DB1C
 value = 0x0328082A # sltu       $at, $t9, $t0 -> slt        $at, $t9, $t0
+
+# fix boot logo color fill. The wrong fill is used
+[[patches.instruction]]
+func = "func_80330190_unk_bin_5"
+vram = 0x803301A4
+value = 0x24050000 # addiu      $a1, $zero, 0xFF -> addiu      $a1, $zero, 0x00
+
+[[patches.instruction]]
+func = "func_80330190_unk_bin_5"
+vram = 0x803301A8
+value = 0x24060000 # addiu      $a2, $zero, 0xFF -> addiu      $a2, $zero, 0x00
+
+[[patches.instruction]]
+func = "func_80330190_unk_bin_5"
+vram = 0x803301B0
+value = 0x24070000 # addiu      $a3, $zero, 0xFF -> addiu      $a3, $zero, 0x00

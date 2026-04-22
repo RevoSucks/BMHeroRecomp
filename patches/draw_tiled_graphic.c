@@ -230,6 +230,10 @@ struct UnkFuncStruct800623E0_SP4C {
     /* 0x14 */ s16 unk14;
 };
 
+extern u8 D_80177932;
+extern u8 D_80177934;
+extern u8 D_80177938;
+
 // process tiled graphic call by loading arguments and calling draw
 RECOMP_PATCH void func_800623E0(s32 objId) {
     f32 x;
@@ -316,7 +320,6 @@ RECOMP_PATCH void func_800623E0(s32 objId) {
         gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_AUTO);
     } else if (fileId == 1 && rom_offset == 0 && arr_offset == 0) {
         // this is the boot logo. suspend auto
-        Debug_SetBg(1, 0x00, 0x00, 0x00); // set BG to black
         gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_ADJUST);
         func_80060F00(x, y, width, height, scale_x, scale_y, sp44, sp40, sp36);
         gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_AUTO);
