@@ -122,7 +122,7 @@ RECOMP_PATCH void func_80070B1C(void) {
 
         f32 aspect_ratio = recomp_get_target_aspect_ratio(320.0f/240.0f);
 
-        recomp_printf("Hud Aspect %.6f\n", aspect_ratio);
+        //recomp_printf("Hud Aspect %.6f\n", aspect_ratio);
 
         if (D_80177A4C > 8) {
             aspect_ratio = (320.0f)/(240.0f); // HACK. Used when moving the score scissor to the center screen

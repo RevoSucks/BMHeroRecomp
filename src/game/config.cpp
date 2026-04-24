@@ -24,7 +24,12 @@
 static void add_general_options(recomp::config::Config &config) {
     using EnumOptionVector = const std::vector<recomp::config::ConfigOptionEnumOption>;
 
-    // stubbed
+    config.add_number_option(
+        banjo::configkeys::general::extended_level_chunk_rendering,
+        "Extended Level Chunk Rendering",
+        "Extends the chunk radius for rendering level 'chunks' during normal level gameplay.",
+        0, 10, 1, 0, false, 1
+    );
 }
 
 template <typename T = uint32_t>
@@ -35,6 +40,10 @@ T get_general_config_enum_value(const std::string& option_id) {
 template <typename T = uint32_t>
 T get_general_config_number_value(const std::string& option_id) {
     return static_cast<T>(std::get<double>(recompui::config::get_general_config().get_option_value(option_id)));
+}
+
+uint32_t banjo::get_render_chunk_radius_count() {
+    return get_general_config_number_value(banjo::configkeys::general::extended_level_chunk_rendering);
 }
 
 banjo::NoteSavingMode banjo::get_note_saving_mode() {

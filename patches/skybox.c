@@ -4,7 +4,8 @@
 
 // skybox.c
 
-f32 __sinf(f32);
+extern float sinf_game(float angle);
+extern float cosf_game(float angle);
 
 extern f64 D_80105580;
 extern f64 D_80105588;
@@ -190,7 +191,7 @@ RECOMP_PATCH void Skybox_DrawWave(f32 x, f32 y, s32 img_width, UNUSED s32 img_he
             if (sp84 >= D_80105580) {
                 sp84 = (sp84 - D_80105588);
             }
-            sp84 = __sinf((sp84 * D_80105590)) * (D_80177A1A / 2);
+            sp84 = sinf_game((sp84 * D_80105590)) * (D_80177A1A / 2);
             sp80 = (sp84 * 32.0f);
             D_80177A14 += D_80177A24;
             if (D_80177A14 >= D_80105598) {

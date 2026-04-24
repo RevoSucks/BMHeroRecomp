@@ -11,6 +11,9 @@
 
 unsigned long long dummy = 0x0123456789ABCDEFULL;
 
+extern float sinf_game(float angle);
+extern float cosf_game(float angle);
+
 RECOMP_PATCH int GetSi_Status(void) {
     return 0;
 }
@@ -454,11 +457,21 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
 #define gEXMatrixGroupDecomposedNormal(cmd, id, push, proj, edit) \
     gEXMatrixGroupDecomposed(cmd, id, push, proj, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_INTERPOLATE, G_EX_ORDER_LINEAR, edit, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_AUTO)
 
-        if (tagged) {
-            Mtx *m = &D_8016E104->unkE0[id];
-            if (id != 0xFFFFFFFF)
+#define gEXMatrixGroupNoInterpolateID(cmd, id, push, proj, edit) \
+    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP)
+
+        // if the object being tagged is the goal arrows, we wont be interpolating those.
+#define GOAL_ARROWS_OBJ_ID 0x40
+
+        if (gObjects[taggedID].objID == GOAL_ARROWS_OBJ_ID) {
+            gEXMatrixGroupNoInterpolateID(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
+        } else if (tagged) {
+            if (id != 0xFFFFFFFF) {
+                Mtx *m = &D_8016E104->unkE0[id];
                 gEXMatrixGroupDecomposedNormal(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
+            }
         }
+
         gSPMatrix(dlist++, osVirtualToPhysical(&D_8016E104->unkE0[id++]),
                   G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPDisplayList(dlist++, (s32) (spEC[arg5].dlist) + (u8*)arg1);
@@ -1340,4 +1353,95 @@ RECOMP_PATCH void func_8001C384(s32 objID, s32 arg1) {
     taggedID = objID;
     D_8016E3A4 = func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
     tagged = 0;
+}
+
+extern void func_80065D88(s32, s32, s32);                     /* extern */
+extern void func_800660DC(s32, s32, s32, u8, s32, s32, s32, s32, s32); /* extern */
+
+extern u8 D_801765D8[][2];
+
+// do view culling for geometry level chunks
+RECOMP_PATCH void func_800663EC(void) {
+    s32 sp64;
+    s32 sp60;
+    s32 sp5C;
+    s32 sp58;
+    s32 pad3;
+    s32 pad2;
+    s32 pad1;
+    s32 sp48;
+    s32 sp44;
+    s32 pad0;
+    s32 sp3C;
+    s32 pad5;
+    struct UnkStruct80108238 * sp34;
+    u8 sp33;
+    
+
+    sp34 = D_80108238[gCurrentLevel];
+    func_80065AEC(gView.at.x, gView.at.y, gView.at.z, &sp60, &sp5C, &sp58);
+    int addedRadius = recomp_get_render_chunk_radius(); // default is 0
+
+    func_800660DC(sp60, sp5C, sp58, D_80104C70[gDebugDispType][0] + addedRadius, D_80104C70[gDebugDispType][1] + addedRadius, D_80104C70[gDebugDispType][2] + addedRadius, 
+                                    D_80104C70[gDebugDispType][3] + addedRadius, D_80104C70[gDebugDispType][4] + addedRadius, D_80104C70[gDebugDispType][5] + addedRadius);
+    
+    for(sp48 = 0x4E; sp48 < 0x8E; sp48++) {
+        if (gObjects[sp48].actionState != 0) {
+            sp44 = 0;
+            for(sp3C = 0; sp3C < 0x40; sp3C++) {
+                if (D_801777F0[sp3C] != 0) {
+                    // hides chunks?
+                    if (gObjects[sp48].actionState == D_801777F0[sp3C]) {
+                        // what
+                        if (D_8017794C[D_801777F0[sp3C]].unkB[-16] < 8) {
+                            sp33 = D_8017794C[D_801777F0[sp3C]].unkB[-17];
+                            if (D_801765D8[sp33][1] != 0) {
+                                func_8001AD6C(sp48);
+                            }
+                        } else {
+                            func_8001AD6C(sp48);
+                        }
+                        D_801777F0[sp3C] = 0;
+                        sp44 = 1;
+                        break;
+                    }
+                }
+            }
+            if (sp44 == 0) {
+                func_8001A928(sp48);
+            }
+        }
+    }
+
+    for(sp3C = 0; sp3C < 0x40; sp3C++) {
+        if (D_801777F0[sp3C] != 0) {
+            for(sp48 = 0x4E; sp48 < 0x8E; sp48++) {
+                if (gObjects[sp48].actionState == 0) {
+                    sp64 = (s32)D_801777F0[sp3C] - 1;
+                    func_8001A928(sp48);
+                    if (D_80177928 != 0) {
+                        if (D_8017794C[sp64].unk0 != 0xFF) {                            
+                            func_8001BD44(sp48, 0, D_8017794C[sp64].unk0, (s32)((u8*)gFileArray[0x1B].ptr + sp34->unk20));
+                        }
+                    } else {
+                        if (D_8017794C[sp64].unk1 != 0xFF) {                            
+                            func_8001BD44(sp48, 0, D_8017794C[sp64].unk1, (s32)((u8*)gFileArray[0x1B].ptr + sp34->unk14));
+                        }
+                        if (D_8017794C[sp64].unk2 != 0xFF) {                            
+                            func_8001BD44(sp48, 1, D_8017794C[sp64].unk2, (s32)((u8*)gFileArray[0x1B].ptr + sp34->unk18));
+                        }
+                        if (D_8017794C[sp64].unk3 != 0xFF) {                            
+                            func_8001BD44(sp48, 3, D_8017794C[sp64].unk3, (s32)((u8*)gFileArray[0x1B].ptr + sp34->unk1C));
+                        }
+                    }
+                    func_80065D88(sp48, (s32)D_8017794C, sp64);
+                    gObjects[sp48].actionState = sp64 + 1;
+                    gObjects[sp48].Pos.x = D_8017794C[sp64].unk4;
+                    gObjects[sp48].Pos.y = D_8017794C[sp64].unk6;
+                    gObjects[sp48].Pos.z = D_8017794C[sp64].unk8;
+                    break;
+                }
+            }
+        }
+    }
 }

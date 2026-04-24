@@ -14,6 +14,7 @@ namespace banjo {
     namespace configkeys {
         namespace general {
             inline const std::string note_saving_mode = "note_saving_mode";
+            inline const std::string extended_level_chunk_rendering = "extended_level_chunk_rendering";
             inline const std::string camera_invert_mode = "camera_invert_mode";
             inline const std::string analog_cam_mode = "analog_cam_mode";
             inline const std::string third_person_camera_invert_mode = "third_person_camera_invert_mode";
@@ -76,6 +77,8 @@ namespace banjo {
     });
 
     NoteSavingMode get_note_saving_mode();
+
+    uint32_t get_render_chunk_radius_count();
 
     enum class CutsceneAspectRatioMode {
         Original,

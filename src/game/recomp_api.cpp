@@ -194,6 +194,10 @@ extern "C" void recomp_get_analog_cam_enabled(uint8_t* rdram, recomp_context* ct
     _return<s32>(ctx, banjo::get_analog_cam_mode() == banjo::AnalogCamMode::On);
 }
 
+extern "C" void recomp_get_render_chunk_radius(uint8_t* rdram, recomp_context* ctx) {
+    _return<uint32_t>(ctx, banjo::get_render_chunk_radius_count());
+}
+
 extern "C" void recomp_get_note_saving_enabled(uint8_t* rdram, recomp_context* ctx) {
     _return<s32>(ctx, banjo::get_note_saving_mode() == banjo::NoteSavingMode::On);
 }

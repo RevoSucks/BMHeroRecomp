@@ -28,8 +28,6 @@ void osWriteBackDCacheAll(void);
 #define strlen strlen_recomp
 #define osVirtualToPhysical osVirtualToPhysical_recomp
 #define osPiStartDma osPiStartDma_recomp
-#define __sinf __sinf_recomp
-#define cosf __cosf_recomp
 #define osContGetReadData osContGetReadData_recomp
 #define osCreatePiManager osCreatePiManager_recomp
 #define osYieldThread osYieldThread_recomp
