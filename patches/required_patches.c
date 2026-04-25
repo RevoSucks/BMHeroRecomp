@@ -468,6 +468,7 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
         } else if (tagged) {
             if (id != 0xFFFFFFFF) {
                 Mtx *m = &D_8016E104->unkE0[id];
+                recomp_printf("[func_8000EEE8] tagging ID 0x%08X %d\n", taggedID, taggedID);
                 gEXMatrixGroupDecomposedNormal(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
             }
         }
@@ -499,6 +500,10 @@ RECOMP_PATCH s32 func_8000FC08(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, 
     }
     if (arg0->unk10 != 0) {
         for (sp34 = 0; sp34 < arg0->unk10; sp34++) {
+            // if we base it of 0x4000, this will increment the ID every call.
+            if (taggedID >= 0x4000) {
+                taggedID++;
+            }
             arg6 = func_8000FC08((void*)arg0->unkC[sp34], &sp30, arg2, arg3, arg4, arg5, arg6);
         }
     }
@@ -591,16 +596,16 @@ RECOMP_PATCH void func_800723EC(void) {
 void Math_Mat3f_Inverse(Matrix, Matrix); /* extern */
 extern void func_80019050(s32);
 
-RECOMP_PATCH void func_80019510(s32 arg0, s32 arg1, s32 arg2) {
+RECOMP_PATCH void func_80019510(s32 objID, s32 arg1, s32 arg2) {
     Mtx spA8;
     Matrix sp68;
     Matrix sp28;
 
     if (arg2 != 0) {
-        func_80019050(arg0);
+        func_80019050(objID);
     }
     guMtxL2F(sp68, &D_8016E104->unk00[2]);
-    guMtxCatF(gObjects[arg0].unk64, sp68, sp68);
+    guMtxCatF(gObjects[objID].unk64, sp68, sp68);
     guMtxF2L(sp68, &spA8);
     if (arg1 == 0) {
         //recomp_printf("Setting mtx of type 0\n");
@@ -608,16 +613,15 @@ RECOMP_PATCH void func_80019510(s32 arg0, s32 arg1, s32 arg2) {
         gSPMatrix(gMasterDisplayList++, &D_8016E104->unkE0[D_8016E3A4++], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     } else if (arg1 == 1) {
         //recomp_printf("Setting mtx of type 1\n");
-        D_8016E3B4 = gObjects[arg0].Scale.x;
-        D_8016E3BC = gObjects[arg0].Scale.y;
-        D_8016E3C4 = gObjects[arg0].Scale.z;
+        D_8016E3B4 = gObjects[objID].Scale.x;
+        D_8016E3BC = gObjects[objID].Scale.y;
+        D_8016E3C4 = gObjects[objID].Scale.z;
         D_8016E104->unk00[1] = spA8;
     } else if (arg1 == 2) {
-        
        // recomp_printf("Setting mtx of type 2\n");
         guMtxIdentF(sp28);
         Math_Mat3f_Inverse(sp28, sp68);
-        Math_Mat3f_Scale(sp28, gObjects[arg0].Scale.x, gObjects[arg0].Scale.y, gObjects[arg0].Scale.z);
+        Math_Mat3f_Scale(sp28, gObjects[objID].Scale.x, gObjects[objID].Scale.y, gObjects[objID].Scale.z);
         guMtxCatF(sp28, sp68, sp68);
         guMtxF2L(sp68, &spA8);
         D_8016E104->unkE0[D_8016E3A4] = spA8;
@@ -1252,7 +1256,7 @@ RECOMP_PATCH void func_8001C70C(void) {
                     func_8001A488(sp34);
                     sp30 = D_80165290[sp34].unk0;
                     tagged = 1;
-                    //recomp_printf("[func_8001C70C] tagging geometry with 0x%08X\n", sp38);
+                    recomp_printf("[func_8001C70C] tagging geometry with 0x%08X\n", sp38);
                     taggedID = sp38;
                     D_8016E3A4 =
                         func_8000FD9C(D_80165290[sp34].modelTag, &gMasterDisplayList, (void*)sp30, sp30, sp30, sp30, D_8016E3A4);
@@ -1279,7 +1283,7 @@ RECOMP_PATCH void func_8001C96C(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                //recomp_printf("[func_8001C96C] tagging geometry with 0x%08X\n", sp30);
+                recomp_printf("[func_8001C96C] tagging geometry with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1305,7 +1309,7 @@ RECOMP_PATCH void func_8001C464(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                //recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
+                recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1330,7 +1334,7 @@ RECOMP_PATCH void func_8001C5B8(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                //recomp_printf("[func_8001C5B8] tagging object with 0x%08X\n", sp30);
+                recomp_printf("[func_8001C5B8] tagging object with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1349,8 +1353,8 @@ RECOMP_PATCH void func_8001C384(s32 objID, s32 arg1) {
     func_8001A488(sp2C);
     sp28 = D_80165290[sp2C].unk0;
     tagged = 1;
-    //recomp_printf("[func_8001C384] tagging misc with 0x%08X\n", objID);
-    taggedID = objID;
+    recomp_printf("[func_8001C384] tagging misc with 0x%08X, 0x%08X\n", objID, arg1);
+    taggedID = 0x4000 + (objID * 0x100) + (arg1 * 0x80);
     D_8016E3A4 = func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
     tagged = 0;
 }
