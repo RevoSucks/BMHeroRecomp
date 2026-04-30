@@ -196,15 +196,12 @@ RECOMP_PATCH void func_800821E0(void) {
     sp34->words.w0 = 0xBC00000E;
     sp34->words.w1 = (u32) sp3E;
 
-    // if any of these will cause a NaN, just pass temporary values in.
-    if ( (gView.eye.x == 0.0f && gView.eye.y == 0.0f && gView.eye.z == 0.0f) ||
-         (gView.at.x  == 0.0f && gView.at.y  == 0.0f && gView.at.z  == 0.0f) ||
-         (gView.up.x  == 0.0f && gView.up.y  == 0.0f && gView.up.z  == 0.0f)) {
-
-        } else {
+    // if the gView eye will cause a NaN, just pass temporary values in.
+    if ((gView.eye.x == 0.0f && gView.eye.y == 0.0f && gView.eye.z == 0.0f)) {
+            
+    } else {
         guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
                  gView.up.x, gView.up.y, gView.up.z);
-        
     sp30 = gMasterDisplayList++;
     sp30->words.w0 = 0x01030040;
     sp30->words.w1 = (u32) D_8016E104;

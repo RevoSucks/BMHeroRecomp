@@ -278,10 +278,12 @@ RECOMP_PATCH void func_800623E0(s32 objId) {
     fileId = sp4C->unk14;
     sp60 = gFileArray[fileId].ptr[sp4C->unkC[sp4C->unk4[sp3F]]];
 
-    recomp_printf("[func_800623E0] file ID 0x%08X %d will be drawn\n", fileId, fileId);
-    recomp_printf("[func_800623E0] file ID ptr     0x%08X\n", (u32)&gFileArray[fileId].ptr);
-    recomp_printf("[func_800623E0] file ID rom off 0x%08X\n", *(u32*)&gFileArray[fileId].pad4[0]);
-    recomp_printf("[func_800623E0] file ID arr off 0x%08X\n", sp4C->unkC[sp4C->unk4[sp3F]]);
+    if (0) {
+        recomp_printf("[func_800623E0] file ID 0x%08X %d will be drawn\n", fileId, fileId);
+        recomp_printf("[func_800623E0] file ID ptr     0x%08X\n", (u32)&gFileArray[fileId].ptr);
+        recomp_printf("[func_800623E0] file ID rom off 0x%08X\n", *(u32*)&gFileArray[fileId].pad4[0]);
+        recomp_printf("[func_800623E0] file ID arr off 0x%08X\n", sp4C->unkC[sp4C->unk4[sp3F]]);
+    }
 
     if (sp60 == 4) {
         sp36 = 2;
@@ -301,7 +303,7 @@ RECOMP_PATCH void func_800623E0(s32 objId) {
     width = (((u8*)&gFileArray[fileId].ptr[sp4C->unkC[sp4C->unk4[sp3F]]])[8]) | (((u8*)&gFileArray[fileId].ptr[sp4C->unkC[sp4C->unk4[sp3F]]])[9] << 8);
     height = (((u8*)&gFileArray[fileId].ptr[sp4C->unkC[sp4C->unk4[sp3F]]])[0xC]) | (((u8*)&gFileArray[fileId].ptr[sp4C->unkC[sp4C->unk4[sp3F]]])[0xD] << 8);
 
-    if (fileId == 2) {
+    if (0 && fileId == 2) {
         recomp_printf("File id 2 has x and y of %.6f and %.6f\n", x, y);
     }
 
