@@ -174,7 +174,143 @@ extern void func_800FF7B4(void);
 extern void yield_self_1ms(void);
 extern void func_8008B030(void);
 
-float gRecompNewView[4][4];
+// double buffered
+float gRecompNewView[2][4][4] __attribute__((aligned(8)));
+float gRecompNewView_Inv[2][4][4] __attribute__((aligned(8)));
+
+int bufferID = 0;
+
+static int frameCount = 0;
+
+// shamelessly lifted from stackoverflow https://stackoverflow.com/questions/1148309/inverting-a-4x4-matrix
+RECOMP_EXPORT int gluInvertMatrix(float m[16], float invOut[16]) {
+    float inv[16], det;
+    int i;
+
+    inv[0] = m[5]  * m[10] * m[15] - 
+             m[5]  * m[11] * m[14] - 
+             m[9]  * m[6]  * m[15] + 
+             m[9]  * m[7]  * m[14] +
+             m[13] * m[6]  * m[11] - 
+             m[13] * m[7]  * m[10];
+
+    inv[4] = -m[4]  * m[10] * m[15] + 
+              m[4]  * m[11] * m[14] + 
+              m[8]  * m[6]  * m[15] - 
+              m[8]  * m[7]  * m[14] - 
+              m[12] * m[6]  * m[11] + 
+              m[12] * m[7]  * m[10];
+
+    inv[8] = m[4]  * m[9] * m[15] - 
+             m[4]  * m[11] * m[13] - 
+             m[8]  * m[5] * m[15] + 
+             m[8]  * m[7] * m[13] + 
+             m[12] * m[5] * m[11] - 
+             m[12] * m[7] * m[9];
+
+    inv[12] = -m[4]  * m[9] * m[14] + 
+               m[4]  * m[10] * m[13] +
+               m[8]  * m[5] * m[14] - 
+               m[8]  * m[6] * m[13] - 
+               m[12] * m[5] * m[10] + 
+               m[12] * m[6] * m[9];
+
+    inv[1] = -m[1]  * m[10] * m[15] + 
+              m[1]  * m[11] * m[14] + 
+              m[9]  * m[2] * m[15] - 
+              m[9]  * m[3] * m[14] - 
+              m[13] * m[2] * m[11] + 
+              m[13] * m[3] * m[10];
+
+    inv[5] = m[0]  * m[10] * m[15] - 
+             m[0]  * m[11] * m[14] - 
+             m[8]  * m[2] * m[15] + 
+             m[8]  * m[3] * m[14] + 
+             m[12] * m[2] * m[11] - 
+             m[12] * m[3] * m[10];
+
+    inv[9] = -m[0]  * m[9] * m[15] + 
+              m[0]  * m[11] * m[13] + 
+              m[8]  * m[1] * m[15] - 
+              m[8]  * m[3] * m[13] - 
+              m[12] * m[1] * m[11] + 
+              m[12] * m[3] * m[9];
+
+    inv[13] = m[0]  * m[9] * m[14] - 
+              m[0]  * m[10] * m[13] - 
+              m[8]  * m[1] * m[14] + 
+              m[8]  * m[2] * m[13] + 
+              m[12] * m[1] * m[10] - 
+              m[12] * m[2] * m[9];
+
+    inv[2] = m[1]  * m[6] * m[15] - 
+             m[1]  * m[7] * m[14] - 
+             m[5]  * m[2] * m[15] + 
+             m[5]  * m[3] * m[14] + 
+             m[13] * m[2] * m[7] - 
+             m[13] * m[3] * m[6];
+
+    inv[6] = -m[0]  * m[6] * m[15] + 
+              m[0]  * m[7] * m[14] + 
+              m[4]  * m[2] * m[15] - 
+              m[4]  * m[3] * m[14] - 
+              m[12] * m[2] * m[7] + 
+              m[12] * m[3] * m[6];
+
+    inv[10] = m[0]  * m[5] * m[15] - 
+              m[0]  * m[7] * m[13] - 
+              m[4]  * m[1] * m[15] + 
+              m[4]  * m[3] * m[13] + 
+              m[12] * m[1] * m[7] - 
+              m[12] * m[3] * m[5];
+
+    inv[14] = -m[0]  * m[5] * m[14] + 
+               m[0]  * m[6] * m[13] + 
+               m[4]  * m[1] * m[14] - 
+               m[4]  * m[2] * m[13] - 
+               m[12] * m[1] * m[6] + 
+               m[12] * m[2] * m[5];
+
+    inv[3] = -m[1] * m[6] * m[11] + 
+              m[1] * m[7] * m[10] + 
+              m[5] * m[2] * m[11] - 
+              m[5] * m[3] * m[10] - 
+              m[9] * m[2] * m[7] + 
+              m[9] * m[3] * m[6];
+
+    inv[7] = m[0] * m[6] * m[11] - 
+             m[0] * m[7] * m[10] - 
+             m[4] * m[2] * m[11] + 
+             m[4] * m[3] * m[10] + 
+             m[8] * m[2] * m[7] - 
+             m[8] * m[3] * m[6];
+
+    inv[11] = -m[0] * m[5] * m[11] + 
+               m[0] * m[7] * m[9] + 
+               m[4] * m[1] * m[11] - 
+               m[4] * m[3] * m[9] - 
+               m[8] * m[1] * m[7] + 
+               m[8] * m[3] * m[5];
+
+    inv[15] = m[0] * m[5] * m[10] - 
+              m[0] * m[6] * m[9] - 
+              m[4] * m[1] * m[10] + 
+              m[4] * m[2] * m[9] + 
+              m[8] * m[1] * m[6] - 
+              m[8] * m[2] * m[5];
+
+    det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
+
+    if (det == 0)
+        return FALSE;
+
+    det = 1.0 / det;
+
+    for (i = 0; i < 16; i++)
+        invOut[i] = inv[i] * det;
+
+    return TRUE;
+}
 
 RECOMP_PATCH void func_800821E0(void) {
     u16 sp3E;
@@ -200,12 +336,15 @@ RECOMP_PATCH void func_800821E0(void) {
     if ((gView.eye.x == 0.0f && gView.eye.y == 0.0f && gView.eye.z == 0.0f)) {
             
     } else {
+        recomp_printf("gView %f %f %f (frame %d)\n", gView.eye.x, gView.eye.y, gView.eye.z, frameCount);
         // for the rt64 renderer
-        guLookAtF(&gRecompNewView, gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
+        guLookAtF(&gRecompNewView[bufferID], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
                  gView.up.x, gView.up.y, gView.up.z);
         guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
                  gView.up.x, gView.up.y, gView.up.z);
-    gEXSetViewMatrixFloat(gMasterDisplayList++, &gRecompNewView);
+    // we need to invert the MTX before using it
+    gluInvertMatrix(&gRecompNewView[bufferID], &gRecompNewView_Inv[bufferID]);
+    gEXSetViewMatrixFloat(gMasterDisplayList++, &gRecompNewView_Inv[bufferID]);
     gSPMatrix(gMasterDisplayList++, &D_8016E104->unk00[0], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     D_8016E3A4 = 0;
     if (D_80177A20 < 2) {
@@ -244,8 +383,6 @@ extern void func_8005F0F4(void);
 extern void Create_GfxTask(void);
 extern void func_8001D3CC(void);
 
-static int frameCount = 0;
-
 RECOMP_PATCH void func_8001D9E4(void* arg0) {
     func_8005F0F4();
     D_8016E10C = arg0;
@@ -253,7 +390,7 @@ RECOMP_PATCH void func_8001D9E4(void* arg0) {
     gMasterDisplayList = &D_8016E10C->unk68.gfxWork;
 
     gEXEnable(gMasterDisplayList++);
-    gEXSetRefreshRate(gMasterDisplayList, 60);
+    gEXSetRefreshRate(gMasterDisplayList, 30);
     gEXSetRectAspect(gMasterDisplayList++, G_EX_ASPECT_AUTO);
 
     gSPSegment(gMasterDisplayList++, 0x00, 0x00000000);
@@ -364,8 +501,6 @@ s32 func_8000FC08(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, s32 arg2, s32
 
 s32 func_8000F888(UnkStruct_8000F888* arg0, Gfx** arg1, s32 arg2, UNUSED s32 arg3, UNUSED s32* unused, s32* arg5);
 
-int bufferID = 0;
-
 RECOMP_PATCH s32 func_8000FD9C(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, UnkStruct_F280_1* arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6) {
     D_80055820 = 0;
     guMtxL2F(D_80055828[D_80055820], (Mtx*) &D_8016E104->unk00[1]);
@@ -459,16 +594,10 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
 #define gEXMatrixGroupNoInterpolateID(cmd, id, push, proj, edit) \
     gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP)
 
-        // if the object being tagged is the goal arrows, we wont be interpolating those.
-#define GOAL_ARROWS_OBJ_ID 0x40
-
-        if (gObjects[taggedID].objID == GOAL_ARROWS_OBJ_ID) {
-            gEXMatrixGroupNoInterpolateID(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
-        } else if (tagged) {
+        if (tagged) {
             if (id == 0xFFFFFFFF) {
                 gEXMatrixGroupDecomposedNormal(dlist++, 0xDEADBEEF, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
             } else {
-                
                 gEXMatrixGroupDecomposedNormal(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
             }
         }
@@ -607,7 +736,7 @@ RECOMP_PATCH void func_80019510(s32 objID, s32 arg1, s32 arg2) {
     guMtxCatF(gObjects[objID].unk64, sp68, sp68);
     guMtxF2L(sp68, &spA8);
     if (arg1 == 0) {
-        recomp_printf("Setting mtx of type 0\n");
+        //recomp_printf("Setting mtx of type 0\n");
         D_8016E104->unkE0[D_8016E3A4] = spA8;
         gSPMatrix(gMasterDisplayList++, &D_8016E104->unkE0[D_8016E3A4++], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     } else if (arg1 == 1) {
@@ -666,7 +795,10 @@ RECOMP_PATCH void func_80000964(void) {
                 if (D_8016E0A0 != 0) {
                     func_8001E80C();
                 }
-                if ((sp30 < 2) && (D_8016E098 != 0)) {
+                // @recomp: Due to a timing bug in the original game, the game actually ends up sending
+                // duplicate DLs to the renderer. We need to ensure that it only attempts to render if
+                // the ID is when the game is actually drawing. Check if D_80165284 == 1.
+                if ((sp30 < 2) && (D_8016E098 != 0) && (D_80165284 == 1)) {
                     bufferID = sp34;
                     func_8001D9E4(&D_80340000[sp34]);
                     sp30 += 1;
@@ -1255,7 +1387,7 @@ RECOMP_PATCH void func_8001C70C(void) {
                     func_8001A488(sp34);
                     sp30 = D_80165290[sp34].unk0;
                     tagged = 1;
-                    recomp_printf("[func_8001C70C] tagging geometry with 0x%08X\n", sp38);
+                    //recomp_printf("[func_8001C70C] tagging geometry with 0x%08X\n", sp38);
                     taggedID = sp38;
                     D_8016E3A4 =
                         func_8000FD9C(D_80165290[sp34].modelTag, &gMasterDisplayList, (void*)sp30, sp30, sp30, sp30, D_8016E3A4);
@@ -1282,7 +1414,7 @@ RECOMP_PATCH void func_8001C96C(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                recomp_printf("[func_8001C96C] tagging geometry with 0x%08X\n", sp30);
+                //recomp_printf("[func_8001C96C] tagging geometry with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1308,7 +1440,7 @@ RECOMP_PATCH void func_8001C464(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
+                //recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1333,7 +1465,7 @@ RECOMP_PATCH void func_8001C5B8(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                recomp_printf("[func_8001C5B8] tagging object with 0x%08X\n", sp30);
+                //recomp_printf("[func_8001C5B8] tagging object with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1352,7 +1484,7 @@ RECOMP_PATCH void func_8001C384(s32 objID, s32 arg1) {
     func_8001A488(sp2C);
     sp28 = D_80165290[sp2C].unk0;
     tagged = 1;
-    recomp_printf("[func_8001C384] tagging misc with 0x%08X, 0x%08X\n", objID, arg1);
+    //recomp_printf("[func_8001C384] tagging misc with 0x%08X, 0x%08X\n", objID, arg1);
     taggedID = 0x4000 + (objID * 0x100) + (arg1 * 0x10);
     D_8016E3A4 = func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
     tagged = 0;
@@ -1480,4 +1612,44 @@ RECOMP_PATCH void func_8006E7CC(void) {
             }
         }
     }
+}
+
+extern void UpdateRawControllers(void);
+extern void func_8001DCEC(void);
+extern void func_8005F088(void);
+extern void UpdateControllers(void);
+extern void func_8001D2FC(void);
+extern void func_80016EE4(void);
+extern void func_8001FBAC(void);
+extern void func_8005F0B8(void);
+
+RECOMP_PATCH void func_8001E80C(void) {
+    UpdateRawControllers();
+    func_8001DCEC();
+    if (D_80165284 == 0) {
+        func_8005F088();
+        UpdateControllers();
+        if (D_8016E0B0 != 0) {
+            if (gDebugRoutine2 != NULL) {
+                gDebugRoutine2();
+            }
+            func_8001D2FC();
+            func_80016EE4();
+            func_8001FBAC();
+        }
+        func_8005F0B8();
+    }
+    if (D_8016525C != 0) {
+        if (D_8016525C == 8) {
+            D_8016525C = 0;
+        } else {
+            D_8016525C += 1;
+        }
+    }
+    D_80165284++;
+    if (D_80165284 >= D_8016527C) {
+        D_80165284 = 0;
+    }
+    // DEBUG_PRINTF("Counter: %d\n", D_80165284);
+    D_8016E244++;
 }
