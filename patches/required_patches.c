@@ -174,6 +174,8 @@ extern void func_800FF7B4(void);
 extern void yield_self_1ms(void);
 extern void func_8008B030(void);
 
+float gRecompNewView[4][4];
+
 RECOMP_PATCH void func_800821E0(void) {
     u16 sp3E;
     s32 temp_t8;
@@ -192,19 +194,19 @@ RECOMP_PATCH void func_800821E0(void) {
         Debug_SetBg(1, 0, 0, 0);
     }
     guPerspective(D_8016E104->unk00, &sp3E, 50.0f, 1.3333334f, 100.0f, D_801779C8.raw, 1.0f);
-    sp34 = gMasterDisplayList++;
-    sp34->words.w0 = 0xBC00000E;
-    sp34->words.w1 = (u32) sp3E;
+    gSPPerspNormalize(gMasterDisplayList++, sp3E);
 
     // if the gView eye will cause a NaN, just pass temporary values in.
     if ((gView.eye.x == 0.0f && gView.eye.y == 0.0f && gView.eye.z == 0.0f)) {
             
     } else {
+        // for the rt64 renderer
+        guLookAtF(&gRecompNewView, gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
+                 gView.up.x, gView.up.y, gView.up.z);
         guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
                  gView.up.x, gView.up.y, gView.up.z);
-    sp30 = gMasterDisplayList++;
-    sp30->words.w0 = 0x01030040;
-    sp30->words.w1 = (u32) D_8016E104;
+    gEXSetViewMatrixFloat(gMasterDisplayList++, &gRecompNewView);
+    gSPMatrix(gMasterDisplayList++, &D_8016E104->unk00[0], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
     D_8016E3A4 = 0;
     if (D_80177A20 < 2) {
         func_80087C58();
@@ -354,8 +356,8 @@ extern u32 D_80055D30[3];
 extern u32 D_80055D40[3];
 extern s32 D_80055D4C;
 
-s32 tagged = 0;
-s32 taggedID = 0;
+u32 tagged = 0;
+u32 taggedID = 0;
 
 s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6);
 s32 func_8000FC08(struct UnkInputStruct8000FC08* arg0, Gfx** arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6);
@@ -463,9 +465,10 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
         if (gObjects[taggedID].objID == GOAL_ARROWS_OBJ_ID) {
             gEXMatrixGroupNoInterpolateID(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
         } else if (tagged) {
-            if (id != 0xFFFFFFFF) {
-                Mtx *m = &D_8016E104->unkE0[id];
-                recomp_printf("[func_8000EEE8] tagging ID 0x%08X %d\n", taggedID, taggedID);
+            if (id == 0xFFFFFFFF) {
+                gEXMatrixGroupDecomposedNormal(dlist++, 0xDEADBEEF, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
+            } else {
+                
                 gEXMatrixGroupDecomposedNormal(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
             }
         }
@@ -474,8 +477,7 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
                   G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
         gSPDisplayList(dlist++, (s32) (spEC[arg5].dlist) + (u8*)arg1);
         if (tagged) {
-            if (id != 0xFFFFFFFF)
-                gEXPopMatrixGroup(dlist++, G_MTX_MODELVIEW);
+            gEXPopMatrixGroup(dlist++, G_MTX_MODELVIEW);
         }
         D_80055820 -= spA0;
     } else if (spEC[arg5].unk0 == 1) {
@@ -605,7 +607,7 @@ RECOMP_PATCH void func_80019510(s32 objID, s32 arg1, s32 arg2) {
     guMtxCatF(gObjects[objID].unk64, sp68, sp68);
     guMtxF2L(sp68, &spA8);
     if (arg1 == 0) {
-        //recomp_printf("Setting mtx of type 0\n");
+        recomp_printf("Setting mtx of type 0\n");
         D_8016E104->unkE0[D_8016E3A4] = spA8;
         gSPMatrix(gMasterDisplayList++, &D_8016E104->unkE0[D_8016E3A4++], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
     } else if (arg1 == 1) {
@@ -1351,7 +1353,7 @@ RECOMP_PATCH void func_8001C384(s32 objID, s32 arg1) {
     sp28 = D_80165290[sp2C].unk0;
     tagged = 1;
     recomp_printf("[func_8001C384] tagging misc with 0x%08X, 0x%08X\n", objID, arg1);
-    taggedID = 0x4000 + (objID * 0x100) + (arg1 * 0x80);
+    taggedID = 0x4000 + (objID * 0x100) + (arg1 * 0x10);
     D_8016E3A4 = func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
     tagged = 0;
 }
@@ -1442,6 +1444,39 @@ RECOMP_PATCH void func_800663EC(void) {
                     gObjects[sp48].Pos.z = D_8017794C[sp64].unk8;
                     break;
                 }
+            }
+        }
+    }
+}
+
+// shadows
+extern Gfx D_10005A0[];
+
+extern void func_8006E1B4(struct ObjectStruct* obj, s32 objID);
+
+// draw object shadows for all geometry chunks
+RECOMP_PATCH void func_8006E7CC(void) {
+    struct ObjectStruct* sp24;
+    s32 sp20;
+
+    gSPDisplayList(gMasterDisplayList++, D_10005A0);
+
+    func_8006E1B4(gPlayerObject, 0);
+
+    for(sp24 = &gObjects[2], sp20 = 2; sp20 < 6; sp24++, sp20++) {
+        if (sp24->actionState != 0) {
+            func_8006E1B4(sp24, sp20);
+        }
+    }
+
+    for(sp24 = &gObjects[0xE], sp20 = 0xE; sp20 < 0x4E; sp24++, sp20++) {
+        if (sp24->actionState != 0) {
+            if (gCurrentLevel < 0x80) {
+                if (!(sp24->unk131 & 4)) {
+                    func_8006E1B4(sp24, sp20);
+                }
+            } else {
+                func_8006E1B4(sp24, sp20);
             }
         }
     }
