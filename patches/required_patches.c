@@ -9,6 +9,12 @@
 #include "ultramodern/extensions.h"
 #include "code/71AA0.h"
 
+#define gEXMatrixGroupDecomposedNormal(cmd, id, push, proj, edit) \
+    gEXMatrixGroupDecomposed(cmd, id, push, proj, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_INTERPOLATE, G_EX_ORDER_LINEAR, edit, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_AUTO)
+
+#define gEXMatrixGroupSimpleNormal(cmd, id, push, proj, edit) \
+    gEXMatrixGroupSimple(cmd, id, push, proj, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_INTERPOLATE, G_EX_ORDER_LINEAR, edit, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_AUTO)
+
 unsigned long long dummy = 0x0123456789ABCDEFULL;
 
 extern float sinf_game(float angle);
@@ -183,6 +189,7 @@ int bufferID = 0;
 static int frameCount = 0;
 
 int skipInterpolationOneFrame = 0;
+int skipInterpolationOneFrame_Camera = 0;
 
 // shamelessly lifted from stackoverflow https://stackoverflow.com/questions/1148309/inverting-a-4x4-matrix
 RECOMP_EXPORT int gluInvertMatrix(float m[16], float invOut[16]) {
@@ -346,7 +353,18 @@ RECOMP_PATCH void func_800821E0(void) {
     // we need to invert the MTX before using it
     gluInvertMatrix(&gRecompNewView[bufferID], &gRecompNewView_Inv[bufferID]);
     gEXSetViewMatrixFloat(gMasterDisplayList++, &gRecompNewView_Inv[bufferID]);
+
+    // the camera needs interpolation detected and applied as well.
+#define CAMERA_ID 0xF000
+
+    if (skipInterpolationOneFrame_Camera == 0) {
+        gEXMatrixGroupSimpleNormal(gMasterDisplayList++, CAMERA_ID, G_EX_NOPUSH, G_MTX_PROJECTION, G_EX_EDIT_NONE);
+    } else {
+        gEXMatrixGroupNoInterpolate(gMasterDisplayList++, G_EX_NOPUSH, G_MTX_PROJECTION, G_EX_EDIT_NONE);
+        recomp_printf("skipping interpolation for camera for 1 frame\n");
+    }
     gSPMatrix(gMasterDisplayList++, &D_8016E104->unk00[0], G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+
     D_8016E3A4 = 0;
     if (D_80177A20 < 2) {
         func_80087C58();
@@ -385,6 +403,17 @@ extern void Create_GfxTask(void);
 extern void func_8001D3CC(void);
 
 RECOMP_PATCH void func_8001D9E4(void* arg0) {
+
+    // @recomp unset skip if it was set previously.
+    if (skipInterpolationOneFrame_Camera) {
+        skipInterpolationOneFrame_Camera--;
+    }
+
+    // @recomp do the same for the other variable for objects.
+    if (skipInterpolationOneFrame) {
+        skipInterpolationOneFrame--;
+    }
+
     func_8005F0F4();
     D_8016E10C = arg0;
     D_8016E104 = &D_8016E10C->unk68;
@@ -520,7 +549,7 @@ extern void Math_Mat3f_Inverse(Matrix mf, Matrix mf1);
 s32 func_8000E944(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 arg3, s32 arg4, Gfx* arg5, s32 arg6, s32 arg7);
 
 // if the object is set to 1, interpolation is not done for that frame
-u32 gTrackedObjects[651] = {0};
+u32 gTrackedObjects[256] = {0};
 
 void breakpoint_me(int blah);
 
@@ -604,15 +633,9 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
         }
         guMtxF2L(D_80055828[D_80055820], &D_8016E104->unkE0[id]);
 
-#define gEXMatrixGroupDecomposedNormal(cmd, id, push, proj, edit) \
-    gEXMatrixGroupDecomposed(cmd, id, push, proj, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_INTERPOLATE, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_INTERPOLATE, G_EX_ORDER_LINEAR, edit, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_AUTO)
-
-#define gEXMatrixGroupNoInterpolateID(cmd, id, push, proj, edit) \
-    gEXMatrixGroup(cmd, id, G_EX_INTERPOLATE_SIMPLE, push, proj, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP, G_EX_ORDER_LINEAR, edit, G_EX_ASPECT_AUTO, G_EX_COMPONENT_SKIP, G_EX_COMPONENT_SKIP)
-
         if (taggedID >= 0x4000 && taggedID <= 0x6FFF) {
             // dont go far into this array. This code is shite. Clean up
-        } else if (gTrackedObjects[gObjects[taggedID].objID] == 1) {
+        } else if (gTrackedObjects[taggedID] == 1) {
             tagged = 0;
         }
 
@@ -622,6 +645,7 @@ RECOMP_PATCH s32 func_8000EEE8(Gfx** gfx, UnkStruct_F280_1* arg1, s32 arg2, s32 
 
         if (skipInterpolationOneFrame == 0 && tagged) {
             if (id == 0xFFFFFFFF) {
+                recomp_printf("WARNING: Something passed -1! Defaulting to 0xDEADBEEF 0x%08X\n", taggedID);
                 gEXMatrixGroupDecomposedNormal(dlist++, 0xDEADBEEF, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
             } else {
                 gEXMatrixGroupDecomposedNormal(dlist++, taggedID, G_EX_PUSH, G_MTX_MODELVIEW, G_EX_EDIT_NONE);
@@ -1464,9 +1488,7 @@ RECOMP_PATCH void func_8001C464(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                if (sp30 == 0x13) {
-                    recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
-                }
+                //recomp_printf("[func_8001C464] tagging object with 0x%08X\n", sp30);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1491,7 +1513,7 @@ RECOMP_PATCH void func_8001C5B8(void) {
                 func_8001A488(sp2C);
                 sp28 = D_80165290[sp2C].unk0;
                 tagged = 1;
-                //recomp_printf("[func_8001C5B8] tagging object with 0x%08X\n", sp30);
+                //recomp_printf("[func_8001C5B8] tagging object with 0x%08X 0x%08X\n", sp30, gObjects[sp30].objID);
                 taggedID = sp30;
                 D_8016E3A4 =
                     func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
@@ -1510,7 +1532,7 @@ RECOMP_PATCH void func_8001C384(s32 objID, s32 arg1) {
     func_8001A488(sp2C);
     sp28 = D_80165290[sp2C].unk0;
     tagged = 1;
-    recomp_printf("[func_8001C384] tagging misc with 0x%08X, 0x%08X (OBJ ID: 0x%08X) (0x%08X)\n", objID, arg1, gObjects[objID].objID, 0x4000 + (objID * 0x100) + (arg1 * 0x10));
+    //recomp_printf("[func_8001C384] tagging misc with 0x%08X, 0x%08X (OBJ ID: 0x%08X) (0x%08X)\n", objID, arg1, gObjects[objID].objID, 0x4000 + (objID * 0x100) + (arg1 * 0x10));
     taggedID = 0x4000 + (objID * 0x100) + (arg1 * 0x10);
     D_8016E3A4 = func_8000FD9C(D_80165290[sp2C].modelTag, &gMasterDisplayList, (void*)sp28, sp28, sp28, sp28, D_8016E3A4);
     tagged = 0;
@@ -1629,13 +1651,12 @@ RECOMP_PATCH void func_8001CAAC(s32 objID, f32 animSpeed) {
                         }
                         // this is where the bit is set to where the anim loops.
                         if (isObjectTrackedForNoInterpolationLastFrame(objID)) {
-                            recomp_printf("Object tagged for no interpolation: 0x%08X 0x%08X\n", objID, gObjects[objID].objID);
-                            gTrackedObjects[gObjects[objID].objID] = 1;
+                            gTrackedObjects[objID] = 1;
                         }
                         D_80165290[sp18].unk16 |= 2;
                     } else {
                         if (isObjectTrackedForNoInterpolationLastFrame(objID)) {
-                            gTrackedObjects[gObjects[objID].objID] = 0;
+                            gTrackedObjects[objID] = 0;
                         }
                         D_80165290[sp18].unk16 &= ~2;
                     }

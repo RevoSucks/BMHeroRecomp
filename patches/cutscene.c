@@ -39,17 +39,13 @@ extern struct UnkStruct80134D48 D_80134D48[0x18];
 extern struct MegaStruct gMegaStruct; // 80134F28
 
 extern int skipInterpolationOneFrame;
+extern int skipInterpolationOneFrame_Camera;
 
 extern void ByteParser_SetObjectScale(s16* arg0);
 
 // process cutscene bytecode script, ran every frame during cutscenes
 RECOMP_PATCH void func_80088ECC(void) {
     s16 exit;
-
-    // @recomp unset skip if it was set previously.
-    if (skipInterpolationOneFrame) {
-        skipInterpolationOneFrame--;
-    }
 
     if (gCutsceneLength == -1) {
         return;
@@ -357,8 +353,9 @@ RECOMP_PATCH void func_8008AE64(s16* arg0) {
     s32 sp4;
 
     // @recomp Cutscenes have an interpolation issue where when the camera changes suddenly it
-    // is glitched for a frame due to interpolation. Skip it for 3 frames so the right frame is skipped.
-    skipInterpolationOneFrame = 3;
+    // is glitched for a frame due to interpolation. Skip it for 2 frames so the right frame is skipped.
+    skipInterpolationOneFrame_Camera = 2;
+    skipInterpolationOneFrame = 2;
 
     sp4 = D_80134D48[arg0[0]].ObjectID;
     gMegaStruct.D_80134F28.x = gObjects[sp4].Pos.x;

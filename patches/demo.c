@@ -6,18 +6,64 @@ extern void Demo_HandleSetAnimTextures(void);
 extern void func_8001BD44(s32 objId, s32 arg1, s32 arg2, s32 arg3);
 extern void Demo_SetView(void);
 extern void Demo_PrepareStr(void);
+extern void Demo_HandlePrintText(void);
 
 extern int skipInterpolationOneFrame;
+extern int skipInterpolationOneFrame_Camera;
 
 void func_8005DA00(void);
 
+extern float gRecompNewView[2][4][4] __attribute__((aligned(8)));
+extern float gRecompNewView_Inv[2][4][4] __attribute__((aligned(8)));
+extern int bufferID;
+
+extern int gluInvertMatrix(float m[16], float invOut[16]);
+
+// demo camera
+RECOMP_PATCH void func_8005E040(void) {
+    u16 sp3E;
+    s32 i;
+
+    func_8001D4D0();
+    Debug_SetBg(1, 0, 0, 0);
+    guPerspective(D_8016E104, &sp3E, 50.0f, 1.3333334f, 10.0f, 8000.0f, 1.0f);
+    gSPPerspNormalize(gMasterDisplayList++, sp3E);
+    // for the rt64 renderer
+    guLookAtF(&gRecompNewView[bufferID], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
+                 gView.up.x, gView.up.y, gView.up.z);
+    guLookAt(&D_8016E104->unk00[2], gView.eye.x, gView.eye.y, gView.eye.z, gView.at.x, gView.at.y, gView.at.z,
+             gView.up.x, gView.up.y, gView.up.z);
+
+    // we need to invert the MTX before using it
+    gluInvertMatrix(&gRecompNewView[bufferID], &gRecompNewView_Inv[bufferID]);
+    gEXSetViewMatrixFloat(gMasterDisplayList++, &gRecompNewView_Inv[bufferID]);
+
+    // the camera needs interpolation detected and applied as well.
+#define CAMERA_ID 0xF000
+
+    if (skipInterpolationOneFrame_Camera == 0) {
+        gEXMatrixGroupSimpleNormal(gMasterDisplayList++, CAMERA_ID, G_EX_NOPUSH, G_MTX_PROJECTION, G_EX_EDIT_NONE);
+    } else {
+        gEXMatrixGroupNoInterpolate(gMasterDisplayList++, G_EX_NOPUSH, G_MTX_PROJECTION, G_EX_EDIT_NONE);
+        recomp_printf("skipping interpolation for camera for 1 frame\n");
+    }
+
+    gSPMatrix(gMasterDisplayList++, D_8016E104, G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_PROJECTION);
+    D_8016E3A4 = 0;
+    func_8001838C();
+    for (i = 0; i < 8; i++) {
+        if ((gObjects[i].actionState != 0)) {
+            if (func_8001C1A8(i, 0) != 0) {
+                func_8001B014(i, 0);
+                func_8001C384(i, 0);
+            }
+        }
+    }
+    Demo_HandlePrintText();
+}
+
 RECOMP_PATCH void func_8005DD80(void) {
     s32 sp24;
-
-    // unset skip if it was set since this will be called the frame after.
-    if (skipInterpolationOneFrame == 1) {
-        skipInterpolationOneFrame = 0;
-    }
 
     if ((gContButtonPressed[0] & 0x1000) && (func_8001D1D4() != -1) && (func_8001D1D4() != 1)) {
         D_801347E5 = 1;
@@ -120,7 +166,8 @@ RECOMP_PATCH void func_8005DA00(void) {
         func_8001D284();
     }
     D_801347E4 = D_80134794->unk54;
-    skipInterpolationOneFrame = 1; // skip for the next time
+    skipInterpolationOneFrame = 2; // skip for the next time
+    skipInterpolationOneFrame_Camera = 2; // skip for the next time
     gDemoSceneID += 1;
     D_80134794++;
     func_8001EBE8();
